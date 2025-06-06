@@ -142,7 +142,6 @@
   <div class="card">
     <h2>📘 彥彬文案改寫、貼上文章自動改寫</h2>
     <textarea id="originalText" placeholder="請貼上原始文章..."></textarea>
-
     <label for="topicSelect">選擇分類主題（可AI自動判斷）：</label>
     <select id="topicSelect">
       <option value="">AI 自動判斷</option>
@@ -152,26 +151,20 @@
       <option value="科技未來">科技未來</option>
       <option value="品牌行銷">品牌行銷</option>
     </select>
-
     <label for="lengthSelect">選擇改寫長度：</label>
     <select id="lengthSelect">
       <option value="short" selected>短故事（約95～115字）</option>
       <option value="long">長故事（約165～180字）</option>
     </select>
-
     <button id="rewriteBtn" onclick="autoRewrite()">🚀 自動改寫</button>
-
     <div id="rewriteResult"></div>
-
     <div class="action-buttons" style="display:none;" id="afterButtons">
       <button onclick="copyResult()">📋 複製內容</button>
       <button onclick="shareToLine()">📤 分享內容</button>
       <button onclick="generateImageAndOpen()">🖼️ 文案轉圖片</button>
     </div>
   </div>
-
   <div id="bigAlert"></div>
-
   <script src="https://static.line-scdn.net/liff/edge/2.1/sdk.min.js"></script>
   <script>
     const API_URL = 'https://script.google.com/macros/s/AKfycbwLC4EfEtyQZ1vejtp4u7cQ3vuRkFf7RDWlIa_je_DkAME0E0HjRvVSBfWpee-jiVIu/exec';
@@ -197,11 +190,9 @@
         clearResultAndButtons();
         if (textArea.value.trim()) debounceAutoRewrite();
       });
-
       document.getElementById('topicSelect').addEventListener('change', () => {
         if (textArea.value.trim()) debounceAutoRewrite();
       });
-
       document.getElementById('lengthSelect').addEventListener('change', () => {
         if (textArea.value.trim()) debounceAutoRewrite();
       });
@@ -218,7 +209,6 @@
       const originalText = document.getElementById('originalText').value.trim();
       const topic = document.getElementById('topicSelect').value;
       const length = document.getElementById('lengthSelect').value;
-
       if (!originalText) {
         showError("請先輸入文章");
         return;
@@ -226,7 +216,6 @@
       clearError();
       showLoading("改寫中 ...");
       disableRewriteBtn(true);
-
       try {
         const res = await fetch(API_URL, {
           method: 'POST',
@@ -236,7 +225,6 @@
         });
         const data = await res.json();
         if (data.error || !data.text) throw new Error(data.error || "改寫結果為空");
-
         resultText = data.text.trim();
         showResult(resultText);
         showAfterButtons(true);
