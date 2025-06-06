@@ -208,12 +208,20 @@
         setupEventListeners();
         console.log("✅ LIFF 初始化成功，isInLine:", isInLine);
       } catch (err) {
-        showError('❌ LIFF 初始化失敗，請稍後重試');
-        console.warn("LIFF 初始化失敗", err);
+        // 若初始化失敗，當成非 LINE 瀏覽器處理
+        isInLine = false;
+        setupEventListeners();
+        console.warn("LIFF 初始化失敗，已切換非 LINE 環境", err);
       }
     }
 
     window.addEventListener('load', () => {
+      // 如果是非 LINE 瀏覽器，直接設定 isInLine = false 並啟動事件監聽
+      if (!window.liff) {
+        isInLine = false;
+        setupEventListeners();
+        return;
+      }
       initLiff();
     });
 
@@ -289,9 +297,6 @@
         showResult(resultText);
         showAfterButtons(true);
 
-        // 如果你想記錄行為，可在此呼叫紀錄函數
-        // await logUserRewrite(originalText, topic, length, resultText);
-
       } catch (err) {
         showError("改寫過程發生錯誤，請稍後再試。\n" + err.message);
         clearResultAndButtons();
@@ -309,7 +314,6 @@
     function showResult(text) {
       const div = document.getElementById('rewriteResult');
       div.classList.remove('error');
-      // 用 p 標籤包每段，提升可讀性
       const paragraphs = text.split('\n').filter(p => p.trim() !== '');
       div.innerHTML = paragraphs.map(p => `<p>${escapeHtml(p)}</p>`).join('');
     }
@@ -379,8 +383,6 @@
         return;
       }
       try {
-        // 這裡可改成你自己的圖片生成服務 API 或用第三方 API
-        // 範例: POST 給你的 API，回傳圖片 URL
         const resp = await fetch('https://your-image-api.example.com/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -403,28 +405,18 @@
       }, 1800);
     }
 
-    // 逃逸 HTML 避免 XSS
+    // 安全顯示 HTML
     function escapeHtml(text) {
       return text.replace(/[&<>"']/g, function(m) {
-        return {'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[m];
+        return ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;'
+        })[m];
       });
     }
-
-    // 你可根據需要加上記錄用戶改寫行為的函數
-    /*
-    async function logUserRewrite(original, topic, length, rewritten) {
-      try {
-        // 範例：POST 到你的紀錄 API 或 Google Apps Script
-        await fetch('https://your-logging-api.example.com/log', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ original, topic, length, rewritten, timestamp: new Date().toISOString() }),
-        });
-      } catch(e) {
-        console.warn("紀錄用戶改寫行為失敗", e);
-      }
-    }
-    */
   </script>
 </body>
 </html>
