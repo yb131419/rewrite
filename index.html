@@ -231,6 +231,7 @@
         const res = await fetch(API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          mode: 'cors',  // <----- 允許跨來源資源共用
           body: JSON.stringify({ originalText, topic, length })
         });
         const data = await res.json();
@@ -310,6 +311,7 @@
         const res = await fetch('https://your-image-api.example.com/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          mode: 'cors',  // <----- 同樣設置跨域
           body: JSON.stringify({ text: resultText })
         });
         const json = await res.json();
