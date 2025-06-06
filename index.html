@@ -29,7 +29,7 @@
         })
         .withFailureHandler(err => {
           statusDiv.textContent = '呼叫失敗，請稍後再試';
-          console.error(err);
+          console.error('google.script.run failed:', err);
         })
         .testWriteToSheet(text);
     }
