@@ -4,8 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>彥彬 ✍️文案改寫（完整版）</title>
-  <script src="https://static.line-scdn.net/liff/edge/2.1/sdk.min.js" onload="initLiff()" onerror="alert('❌ LIFF SDK 載入失敗，請確認網路連線或環境設定。')"></script>
+  <script src="https://static.line-scdn.net/liff/edge/2.1/sdk.min.js" 
+          onload="initLiff()" 
+          onerror="alert('❌ LIFF SDK 載入失敗，請確認網路連線或環境設定。')"></script>
   <style>
+    /* === CSS 簡化略，保持你原本的深色主題風格 === */
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
     body {
       font-family: 'Roboto', sans-serif;
@@ -192,28 +195,29 @@
   <div id="bigAlert" role="alert" aria-live="assertive"></div>
 
   <script>
+    // ==== 全局變數 ====
     let isInLine = false;
     let resultText = '';
     let debounceTimer = null;
+    const API_URL = 'https://script.google.com/macros/s/AKfycbwLC4EfEtyQZ1vejtp4u7cQ3vuRkFf7RDWlIa_je_DkAME0E0HjRvVSBfWpee-jiVIu/exec';
 
-    // 初始化 LIFF 並綁定事件
-    function initLiff() {
+    // ====== 初始化 ======
+    async function initLiff() {
       if (!window.liff) {
         alert('❌ LIFF 物件不存在，初始化失敗');
         return;
       }
-      liff.init({ liffId: "2007488640-MVdW20Xe" })
-        .then(() => {
-          isInLine = liff.isInClient();
-          setupEventListeners();
-          console.log("✅ LIFF 初始化成功，isInLine:", isInLine);
-        })
-        .catch(err => {
-          console.warn("LIFF 初始化失敗", err);
-        });
+      try {
+        await liff.init({ liffId: "2007488640-MVdW20Xe" });
+        isInLine = liff.isInClient();
+        setupEventListeners();
+        console.log("✅ LIFF 初始化成功，isInLine:", isInLine);
+      } catch (err) {
+        console.warn("LIFF 初始化失敗", err);
+      }
     }
 
-    // 綁定 textarea 和 select 事件
+    // ====== 綁定事件 ======
     function setupEventListeners() {
       const textarea = document.getElementById('originalText');
       textarea.addEventListener('input', () => {
@@ -222,15 +226,15 @@
       });
 
       document.getElementById('topicSelect').addEventListener('change', () => {
-        if (textarea.value.trim()) autoRewrite();
+        if (document.getElementById('originalText').value.trim()) debounceAutoRewrite();
       });
 
       document.getElementById('lengthSelect').addEventListener('change', () => {
-        if (textarea.value.trim()) autoRewrite();
+        if (document.getElementById('originalText').value.trim()) debounceAutoRewrite();
       });
     }
 
-    // 防抖，避免輸入時頻繁呼叫改寫 API
+    // ====== 防抖改寫（避免輸入時頻繁請求）=====
     function debounceAutoRewrite() {
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
@@ -238,231 +242,214 @@
       }, 1000);
     }
 
-    // 清空結果與按鈕區域
-    function clearResultAndButtons() {
-      const resultEl = document.getElementById("rewriteResult");
-      resultEl.innerHTML = '';
-      document.getElementById('afterButtons').style.display = 'none';
-      resultText = '';
-    }
-
-    // 格式化結果段落，方便閱讀
-    function formatContentWithParagraphs(content) {
-      if (typeof content !== 'string' || !content.trim()) return '';
-      // 用換行符號拆段落，包含句號後拆分
-      const paragraphs = content.split(/\n\n|\n|(?<=。)/).map(p => p.trim()).filter(Boolean);
-      return paragraphs.map(p => `<p>${p}</p>`).join('');
-    }
-
-    // 主要改寫函式
+    // ====== 呼叫改寫API ======
     async function autoRewrite() {
-      const text = document.getElementById("originalText").value.trim();
-      const topic = document.getElementById("topicSelect").value || "";
-      const length = document.getElementById("lengthSelect").value || "short";
-
-      if (!text) {
-        showError("請先貼上文章內容！");
-        clearResultAndButtons();
+      const originalText = document.getElementById('originalText').value.trim();
+      if (!originalText) {
+        showError("請先輸入文章");
         return;
       }
-
-      disableRewriteBtn(true);
       clearError();
-      showLoading("改寫中... 請稍候");
+      showLoading("改寫中 ...");
 
-      const payload = {
-        content: text,
-        topic: topic,
-        length: length
-      };
+      const topic = document.getElementById('topicSelect').value || "AI自動判斷";
+      const length = document.getElementById('lengthSelect').value || "short";
 
       try {
-        const resp = await fetch('https://script.google.com/macros/s/AKfycbwLC4EfEtyQZ1vejtp4u7cQ3vuRkFf7RDWlIa_je_DkAME0E0HjRvVSBfWpee-jiVIu/exec', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+        const params = new URLSearchParams({
+          text: originalText,
+          topic,
+          length,
         });
-        const data = await resp.json();
 
-        if (data.error) {
-          showError("❌ 改寫失敗：" + data.error);
-          disableRewriteBtn(false);
-          hideLoading();
-          clearResultAndButtons();
-          return;
-        }
+        const response = await fetch(`${API_URL}?${params.toString()}`);
+        if (!response.ok) throw new Error('伺服器回應異常');
 
-        resultText = data.result || "";
-        if (!resultText) {
-          showError("❌ 改寫結果為空");
-          disableRewriteBtn(false);
-          hideLoading();
-          clearResultAndButtons();
-          return;
-        }
+        const data = await response.json();
+        if (!data || !data.result) throw new Error('伺服器沒有返回結果');
+
+        resultText = data.result.trim();
 
         displayResult(resultText);
-        disableRewriteBtn(false);
-        hideLoading();
-        document.getElementById('afterButtons').style.display = 'flex';
 
-        // 紀錄改寫行為至 Google Sheet（同一個API，實務上可分離）
-        recordRewriteAction(text, topic, length, resultText);
+        // 紀錄改寫行為（非同步不阻塞UI）
+        recordRewriteAction({
+          originalText,
+          topic,
+          length,
+          rewrittenText: resultText,
+          timestamp: new Date().toISOString()
+        });
 
       } catch (err) {
-        showError("❌ 改寫失敗：" + err.message);
-        disableRewriteBtn(false);
-        hideLoading();
+        showError("改寫失敗，請稍後再試");
+        console.error(err);
         clearResultAndButtons();
+      } finally {
+        hideLoading();
       }
     }
 
-    // 紀錄改寫行為函式（POST 到同一個API，依實際需求可改成分開不同URL）
-    async function recordRewriteAction(original, topic, length, rewritten) {
-      try {
-        await fetch('https://script.google.com/macros/s/AKfycbwLC4EfEtyQZ1vejtp4u7cQ3vuRkFf7RDWlIa_je_DkAME0E0HjRvVSBfWpee-jiVIu/exec', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: "record",
-            original,
-            topic,
-            length,
-            rewritten,
-            timestamp: new Date().toISOString()
-          })
-        });
-        // 你可加 console.log 或其他回饋
-      } catch (e) {
-        console.warn("記錄改寫行為失敗:", e);
-      }
-    }
-
-    // 顯示改寫結果
+    // ====== 顯示改寫結果 ======
     function displayResult(text) {
-      const el = document.getElementById("rewriteResult");
-      el.innerHTML = `<b>改寫結果：</b><div class="rewrite-text">${formatContentWithParagraphs(text)}</div>`;
+      const container = document.getElementById('rewriteResult');
+      container.innerHTML = '';
+
+      const paragraphs = formatContentWithParagraphs(text);
+      container.appendChild(paragraphs);
+
+      // 顯示按鈕
+      document.getElementById('afterButtons').style.display = 'flex';
+
+      // 啟用改寫按鈕
+      disableRewriteBtn(false);
     }
 
-    // 按鈕狀態控制
-    function disableRewriteBtn(isDisabled) {
-      document.getElementById("rewriteBtn").disabled = isDisabled;
+    // ====== 將純文字拆分段落並包裹 <p> ======
+    function formatContentWithParagraphs(text) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'rewrite-text';
+      const paragraphs = text.split(/\n+/).filter(p => p.trim() !== '');
+      paragraphs.forEach(p => {
+        const pEl = document.createElement('p');
+        pEl.textContent = p.trim();
+        wrapper.appendChild(pEl);
+      });
+      return wrapper;
     }
 
-    // 錯誤訊息顯示
+    // ====== 清除結果與按鈕 ======
+    function clearResultAndButtons() {
+      document.getElementById('rewriteResult').innerHTML = '';
+      document.getElementById('afterButtons').style.display = 'none';
+      disableRewriteBtn(false);
+      clearError();
+    }
+
+    // ====== 顯示錯誤訊息 ======
     function showError(msg) {
-      const el = document.getElementById("rewriteResult");
-      el.innerHTML = `<div class="error" role="alert">${msg}</div>`;
+      clearError();
+      const container = document.getElementById('rewriteResult');
+      const errDiv = document.createElement('div');
+      errDiv.className = 'error';
+      errDiv.textContent = msg;
+      container.appendChild(errDiv);
     }
 
     function clearError() {
-      const el = document.getElementById("rewriteResult");
-      if (el.querySelector('.error')) {
-        el.innerHTML = '';
-      }
+      const container = document.getElementById('rewriteResult');
+      const errors = container.querySelectorAll('.error');
+      errors.forEach(e => e.remove());
     }
 
-    // 大字彈跳提示
+    // ====== 按鈕狀態 ======
+    function disableRewriteBtn(disable = true) {
+      document.getElementById('rewriteBtn').disabled = disable;
+    }
+
+    // ====== 大字彈跳提示 ======
     function showLoading(msg) {
-      const alertEl = document.getElementById("bigAlert");
-      alertEl.textContent = msg;
-      alertEl.style.display = "block";
+      const alertBox = document.getElementById('bigAlert');
+      alertBox.textContent = msg;
+      alertBox.style.display = 'block';
     }
     function hideLoading() {
-      const alertEl = document.getElementById("bigAlert");
-      alertEl.style.display = "none";
+      const alertBox = document.getElementById('bigAlert');
+      alertBox.style.display = 'none';
     }
 
-    // 複製改寫結果到剪貼簿
+    // ====== 複製結果 ======
     function copyResult() {
-      if (!resultText) {
-        alert("沒有改寫結果可複製！");
-        return;
-      }
+      if (!resultText) return alert("沒有改寫內容可複製");
       navigator.clipboard.writeText(resultText).then(() => {
-        alert("✅ 已複製改寫結果到剪貼簿！");
+        alert("✅ 已複製改寫內容！");
       }).catch(() => {
-        alert("❌ 複製失敗，請手動複製內容。");
+        alert("❌ 複製失敗，請手動複製。");
       });
     }
 
-    // 分享到 LINE
-    function shareToLine() {
-      if (!resultText) {
-        alert("沒有改寫結果可分享！");
-        return;
-      }
-      if (!isInLine) {
-        alert("此功能僅限於 LINE 內部使用");
-        return;
-      }
-      liff.shareTargetPicker([
-        {
-          type: "text",
-          text: resultText
-        }
-      ]).then(() => {
-        alert("✅ 分享成功！");
-      }).catch(() => {
-        alert("❌ 分享失敗或取消分享");
-      });
-    }
-
-    // 文案轉圖片功能（用 Canvas 動態產生圖片）
-    async function generateImageAndOpen() {
-      if (!resultText) {
-        alert("沒有改寫結果可轉圖片！");
-        return;
-      }
+    // ====== 分享到 LINE ======
+    async function shareToLine() {
+      if (!resultText) return alert("沒有改寫內容可分享");
+      if (!isInLine) return alert("分享功能僅限LINE環境使用");
 
       try {
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
+        await liff.shareTargetPicker([
+          {
+            type: "text",
+            text: resultText
+          }
+        ]);
+      } catch {
+        alert("分享失敗，請稍後再試");
+      }
+    }
 
-        // 設定畫布大小，寬480，高度依字數自動調整
-        const width = 480;
-        const lineHeight = 26;
-        const padding = 24;
-        const lines = resultText.split('\n').map(line => line.trim());
-        const textLines = [];
-        // 將長句拆行
-        lines.forEach(line => {
-          if (line.length <= 40) {
-            textLines.push(line);
+    // ====== 文案轉圖片並開啟新分頁 ======
+    function generateImageAndOpen() {
+      if (!resultText) return alert("沒有改寫內容可轉圖片");
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const lineHeight = 26;
+      const padding = 20;
+      const maxWidth = 460;
+
+      // 字體設定
+      ctx.font = '16px Roboto, sans-serif';
+
+      // 斷行
+      const lines = [];
+      const paragraphs = resultText.split(/\n+/);
+      paragraphs.forEach(para => {
+        let words = para.split('');
+        let line = '';
+        words.forEach(ch => {
+          const testLine = line + ch;
+          const testWidth = ctx.measureText(testLine).width;
+          if (testWidth > maxWidth - padding * 2) {
+            lines.push(line);
+            line = ch;
           } else {
-            // 每40字拆行
-            for (let i = 0; i < line.length; i += 40) {
-              textLines.push(line.slice(i, i + 40));
-            }
+            line = testLine;
           }
         });
-        const height = padding * 2 + textLines.length * lineHeight;
+        if (line) lines.push(line);
+        lines.push(''); // 段落空行
+      });
 
-        canvas.width = width;
-        canvas.height = height;
+      // 設定 canvas 尺寸
+      canvas.width = maxWidth;
+      canvas.height = lines.length * lineHeight + padding * 2;
 
-        // 背景
-        ctx.fillStyle = '#1e1e1e';
-        ctx.fillRect(0, 0, width, height);
+      // 背景色
+      ctx.fillStyle = '#1e1e1e';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // 文字設定
-        ctx.fillStyle = '#74c0fc';
-        ctx.font = "20px 'Roboto', sans-serif";
-        ctx.textBaseline = "top";
+      // 文字色
+      ctx.fillStyle = '#e0e0e0';
+      ctx.textBaseline = 'top';
 
-        // 寫字
-        textLines.forEach((line, idx) => {
-          ctx.fillText(line, padding, padding + idx * lineHeight);
+      // 繪製文字
+      lines.forEach((line, i) => {
+        ctx.fillText(line, padding, padding + i * lineHeight);
+      });
+
+      // 轉成圖片
+      const imgURL = canvas.toDataURL('image/png');
+      window.open(imgURL, '_blank');
+    }
+
+    // ====== 紀錄改寫行為（非同步） ======
+    async function recordRewriteAction(data) {
+      try {
+        await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
         });
-
-        // 產生圖片連結並開啟
-        const dataUrl = canvas.toDataURL("image/png");
-
-        // 使用 window.open 新分頁開啟圖片
-        window.open(dataUrl, "_blank");
-
-      } catch (e) {
-        alert("❌ 轉圖片失敗：" + e.message);
+      } catch (err) {
+        console.warn("紀錄改寫行為失敗:", err);
       }
     }
   </script>
