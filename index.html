@@ -90,6 +90,7 @@
       max-height: 400px;
       overflow-y: auto;
       position: relative;
+      white-space: pre-wrap;
     }
     #rewriteResult b {
       display: block;
@@ -124,6 +125,11 @@
       border: 1px solid #555;
       font-size: 14px;
       padding: 10px;
+      color: #f0f0f0;
+      cursor: pointer;
+    }
+    .action-buttons button:hover {
+      background: #444;
     }
     @media (min-width: 600px) {
       .card { padding: 24px; }
@@ -159,11 +165,11 @@
     <label for="topicSelect">選擇分類主題（可AI自動判斷）：</label>
     <select id="topicSelect" name="topicSelect" aria-label="分類主題選擇">
       <option value="">AI 自動判斷</option>
-      <option>人生成長</option>
-      <option>情感故事</option>
-      <option>商業洞察</option>
-      <option>科技未來</option>
-      <option>品牌行銷</option>
+      <option value="人生成長">人生成長</option>
+      <option value="情感故事">情感故事</option>
+      <option value="商業洞察">商業洞察</option>
+      <option value="科技未來">科技未來</option>
+      <option value="品牌行銷">品牌行銷</option>
     </select>
 
     <label for="lengthSelect">選擇改寫長度：</label>
@@ -190,6 +196,7 @@
     let resultText = '';
     let debounceTimer = null;
 
+    // 初始化 LIFF 並綁定事件
     function initLiff() {
       if (!window.liff) {
         alert('❌ LIFF 物件不存在，初始化失敗');
@@ -206,10 +213,12 @@
         });
     }
 
+    // 綁定 textarea 和 select 事件
     function setupEventListeners() {
       const textarea = document.getElementById('originalText');
       textarea.addEventListener('input', () => {
         if (textarea.value.trim()) debounceAutoRewrite();
+        else clearResultAndButtons();
       });
 
       document.getElementById('topicSelect').addEventListener('change', () => {
@@ -221,6 +230,7 @@
       });
     }
 
+    // 防抖，避免輸入時頻繁呼叫改寫 API
     function debounceAutoRewrite() {
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
@@ -228,12 +238,23 @@
       }, 1000);
     }
 
+    // 清空結果與按鈕區域
+    function clearResultAndButtons() {
+      const resultEl = document.getElementById("rewriteResult");
+      resultEl.innerHTML = '';
+      document.getElementById('afterButtons').style.display = 'none';
+      resultText = '';
+    }
+
+    // 格式化結果段落，方便閱讀
     function formatContentWithParagraphs(content) {
       if (typeof content !== 'string' || !content.trim()) return '';
+      // 用換行符號拆段落，包含句號後拆分
       const paragraphs = content.split(/\n\n|\n|(?<=。)/).map(p => p.trim()).filter(Boolean);
       return paragraphs.map(p => `<p>${p}</p>`).join('');
     }
 
+    // 主要改寫函式
     async function autoRewrite() {
       const text = document.getElementById("originalText").value.trim();
       const topic = document.getElementById("topicSelect").value || "";
@@ -241,6 +262,7 @@
 
       if (!text) {
         showError("請先貼上文章內容！");
+        clearResultAndButtons();
         return;
       }
 
@@ -266,6 +288,7 @@
           showError("❌ 改寫失敗：" + data.error);
           disableRewriteBtn(false);
           hideLoading();
+          clearResultAndButtons();
           return;
         }
 
@@ -274,6 +297,7 @@
           showError("❌ 改寫結果為空");
           disableRewriteBtn(false);
           hideLoading();
+          clearResultAndButtons();
           return;
         }
 
@@ -282,132 +306,117 @@
         hideLoading();
         document.getElementById('afterButtons').style.display = 'flex';
 
-        // 呼叫紀錄改寫行為的 API (Google Sheet 紀錄)
+        // 紀錄改寫行為至 Google Sheet（同一個API，實務上可分離）
         recordRewriteAction(text, topic, length, resultText);
 
       } catch (err) {
         showError("❌ 改寫失敗：" + err.message);
         disableRewriteBtn(false);
         hideLoading();
+        clearResultAndButtons();
       }
     }
 
-    // 呼叫另一個 API 來紀錄改寫行為（假設另一個GAS部署URL）
+    // 紀錄改寫行為函式（POST 到同一個API，依實際需求可改成分開不同URL）
     async function recordRewriteAction(original, topic, length, rewritten) {
       try {
         await fetch('https://script.google.com/macros/s/AKfycbwLC4EfEtyQZ1vejtp4u7cQ3vuRkFf7RDWlIa_je_DkAME0E0HjRvVSBfWpee-jiVIu/exec', {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            original: original,
-            topic: topic,
-            length: length,
-            rewritten: rewritten,
+            action: "record",
+            original,
+            topic,
+            length,
+            rewritten,
             timestamp: new Date().toISOString()
           })
         });
-        console.log("✅ 已紀錄改寫行為");
-      } catch (err) {
-        console.warn("⚠️ 紀錄改寫行為失敗", err);
+        // 你可加 console.log 或其他回饋
+      } catch (e) {
+        console.warn("記錄改寫行為失敗:", e);
       }
     }
 
+    // 顯示改寫結果
     function displayResult(text) {
-      const resultEl = document.getElementById("rewriteResult");
-      resultEl.innerHTML = formatContentWithParagraphs(text);
-      resultEl.classList.remove("error");
+      const el = document.getElementById("rewriteResult");
+      el.innerHTML = `<b>改寫結果：</b><div class="rewrite-text">${formatContentWithParagraphs(text)}</div>`;
+      clearError();
     }
 
-    function copyResult() {
-      if (!resultText) {
-        alert("沒有改寫結果可複製");
-        return;
-      }
-      navigator.clipboard.writeText(resultText)
-        .then(() => showBigAlert("複製成功！"))
-        .catch(() => alert("複製失敗，請手動選取複製"));
-    }
-
-    function shareToLine() {
-      if (!resultText) {
-        alert("沒有改寫結果可分享");
-        return;
-      }
-      if (!isInLine) {
-        alert("請在 LINE 內部使用此功能");
-        return;
-      }
-      liff.shareTargetPicker([
-        {
-          type: 'text',
-          text: resultText
-        }
-      ]).then(() => {
-        showBigAlert("分享成功！");
-      }).catch(() => {
-        alert("分享取消或失敗");
-      });
-    }
-
-    function showLoading(message) {
-      const resultEl = document.getElementById("rewriteResult");
-      resultEl.innerHTML = `<p>${message}</p>`;
-      resultEl.classList.remove("error");
-    }
-
-    function showError(message) {
-      const resultEl = document.getElementById("rewriteResult");
-      resultEl.innerHTML = `<div class="error">${message}</div>`;
-      resultEl.classList.add("error");
+    // 顯示錯誤訊息
+    function showError(msg) {
+      const el = document.getElementById("rewriteResult");
+      el.innerHTML = `<div class="error" role="alert">${msg}</div>`;
     }
 
     function clearError() {
-      const resultEl = document.getElementById("rewriteResult");
-      if (resultEl.classList.contains("error")) {
-        resultEl.innerHTML = "";
-        resultEl.classList.remove("error");
+      const el = document.getElementById("rewriteResult");
+      if (el.querySelector(".error")) {
+        el.innerHTML = '';
       }
     }
 
-    function disableRewriteBtn(flag) {
-      document.getElementById("rewriteBtn").disabled = flag;
-    }
-
-    function showBigAlert(msg) {
+    // 顯示「改寫中」大提示
+    function showLoading(msg) {
       const alertEl = document.getElementById("bigAlert");
       alertEl.textContent = msg;
       alertEl.style.display = "block";
-      setTimeout(() => {
-        alertEl.style.display = "none";
-      }, 1800);
     }
 
-    function generateImageAndOpen() {
-      if (!resultText) {
-        alert("請先完成改寫後再轉圖片");
+    function hideLoading() {
+      const alertEl = document.getElementById("bigAlert");
+      alertEl.style.display = "none";
+    }
+
+    // 按鈕可用狀態切換
+    function disableRewriteBtn(disable) {
+      document.getElementById("rewriteBtn").disabled = disable;
+    }
+
+    // 複製改寫結果
+    function copyResult() {
+      if (!resultText) return alert("沒有改寫內容可複製！");
+      navigator.clipboard.writeText(resultText)
+        .then(() => alert("📋 已複製改寫內容！"))
+        .catch(() => alert("❌ 複製失敗，請手動複製。"));
+    }
+
+    // 分享改寫結果到 LINE
+    async function shareToLine() {
+      if (!resultText) return alert("沒有改寫內容可分享！");
+      if (!isInLine) {
+        alert("請在 LINE APP 中使用分享功能。");
         return;
       }
+      try {
+        await liff.shareTargetPicker([{ type: 'text', text: resultText }]);
+      } catch (e) {
+        alert("分享失敗：" + e.message);
+      }
+    }
+
+    // 將文案轉圖片並開啟新分頁 (此為示範功能)
+    function generateImageAndOpen() {
+      if (!resultText) return alert("沒有改寫內容可轉圖片！");
+      // 簡單示範將文字生成圖片的思路（可改用你想的 API 或方案）
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-      const padding = 20;
-      const lines = resultText.split('\n').filter(Boolean);
-      canvas.width = 720;
-      canvas.height = 100 + lines.length * 30;
-      // 背景
+      canvas.width = 800;
+      canvas.height = 600;
       ctx.fillStyle = '#121212';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      // 文字
-      ctx.fillStyle = '#f0f0f0';
-      ctx.font = '20px Roboto, sans-serif';
-      ctx.textBaseline = 'top';
-      let y = padding;
+      ctx.fillStyle = '#eee';
+      ctx.font = '20px Roboto';
+      const lines = resultText.split('\n');
+      let y = 40;
       lines.forEach(line => {
-        ctx.fillText(line, padding, y);
-        y += 28;
+        ctx.fillText(line, 20, y);
+        y += 30;
       });
-      const dataUrl = canvas.toDataURL('image/png');
-      // 開新分頁顯示圖片
-      window.open(dataUrl, '_blank');
+      const imgUrl = canvas.toDataURL('image/png');
+      window.open(imgUrl, '_blank');
     }
   </script>
 </body>
