@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
-  <base target="_top">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>彥彬 ✍️文案改寫</title>
   <script src="https://static.line-scdn.net/liff/edge/2.1/sdk.min.js"></script>
   <style>
@@ -131,7 +131,6 @@
       button { font-size: 17px; }
       #rewriteResult { font-size: 15.5px; }
     }
-    /* 大字體提示 */
     #bigAlert {
       position: fixed;
       top: 30%;
@@ -180,6 +179,7 @@
     <div class="action-buttons" style="display:none;" id="afterButtons">
       <button onclick="copyResult()">📋 複製內容</button>
       <button onclick="shareToLine()">📤 分享內容</button>
+      <button onclick="generateImageAndOpen()">🖼️ 文案轉圖片</button>
     </div>
   </div>
 
@@ -189,23 +189,46 @@
     let isInLine = false;
     let resultText = '';
 
-    // LIFF 初始化
+    // 初始化 LIFF 並檢查是否在 LINE App 中
     document.addEventListener("DOMContentLoaded", function () {
       liff.init({ liffId: "2007475335-63jZvMxQ" })
-        .then(() => { isInLine = liff.isInClient(); })
+        .then(() => { 
+          isInLine = liff.isInClient(); 
+        })
         .catch(err => { console.warn("LIFF 初始化失敗", err); });
+
+      // 貼上時自動改寫
+      const textarea = document.getElementById('originalText');
+      textarea.addEventListener('input', () => {
+        if (textarea.value.trim()) {
+          debounceAutoRewrite();
+        }
+      });
+
+      // 分類改變自動改寫
+      document.getElementById('topicSelect').addEventListener('change', () => {
+        if (textarea.value.trim()) {
+          autoRewrite();
+        }
+      });
     });
 
-    // 格式化改寫內容段落
+    // 防止過度頻繁呼叫改寫，簡單 debounce
+    let debounceTimer = null;
+    function debounceAutoRewrite() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        autoRewrite();
+      }, 1000);
+    }
+
+    // 將改寫內容分段並包裹 <p>
     function formatContentWithParagraphs(content) {
-      if (typeof content !== 'string' || !content.trim()) {
-        return '';
-      }
+      if (typeof content !== 'string' || !content.trim()) return '';
       let paragraphs = content.split(/\n\n|\n|(?<=。)/).map(p => p.trim()).filter(p => p);
       return paragraphs.map(p => `<p>${p}</p>`).join('');
     }
 
-    // 自動改寫函式
     function autoRewrite() {
       const text = document.getElementById("originalText").value;
       const topic = document.getElementById("topicSelect").value;
@@ -245,13 +268,18 @@
 
           const formattedContent = formatContentWithParagraphs(res.content);
           resultText = `📌 標題：\n${res.title || ''}\n\n📂 分類：\n${res.topic || ''}\n\n📝 改寫內容：\n${res.content}`;
+
           resultDiv.innerHTML = `
             <b>🔖 類別：</b>${res.topic || ''}
             <b class="recommend-title-text">📌 推薦標題：</b>${res.title || ''}
             <b>📝 改寫內容：</b>
             <div class="rewrite-text">${formattedContent}</div>
           `;
+
           document.getElementById("afterButtons").style.display = "flex";
+
+          // 記錄改寫歷史
+          google.script.run.recordRewriteHistory({ text, topic, length, title: res.title, content: res.content });
         })
         .withFailureHandler(err => {
           btn.disabled = false;
@@ -262,7 +290,6 @@
         .rewriteWithAI(text, topic, length);
     }
 
-    // 複製結果並顯示大字體提示
     function copyResult() {
       if (!resultText) return;
       navigator.clipboard.writeText(resultText)
@@ -270,7 +297,6 @@
         .catch(() => alert("❌ 複製失敗，請手動複製"));
     }
 
-    // 分享結果到 LINE 或使用 Web Share API
     function shareToLine() {
       const title = document.querySelector(".recommend-title-text")?.nextSibling?.textContent.trim() || "改寫內容";
       const contentDiv = document.querySelector(".rewrite-text");
@@ -304,7 +330,17 @@
       }
     }
 
-    // 大字體提示函式，顯示2秒
+    function generateImageAndOpen() {
+      if (!resultText) return;
+      google.script.run.withSuccessHandler(url => {
+        if (url && typeof url === 'string') {
+          window.open(url, '_blank');
+        } else {
+          alert("❌ 圖片產生失敗");
+        }
+      }).generateImageFromText(resultText);
+    }
+
     function showBigAlert(message) {
       const alertDiv = document.getElementById('bigAlert');
       alertDiv.textContent = message;
