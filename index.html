@@ -3,60 +3,172 @@
   <head>
     <base target="_top">
     <style>
-      body { font-family: 'Segoe UI', sans-serif; padding: 20px; }
-      .card { border: 1px solid #ccc; border-radius: 10px; padding: 20px; margin-bottom: 20px; background-color: #f9f9f9; }
-      textarea { width: 100%; height: 120px; padding: 10px; border-radius: 6px; border: 1px solid #ddd; }
-      select, button { padding: 8px; font-size: 14px; border-radius: 5px; margin-top: 10px; }
-      pre { background: #efefef; padding: 10px; border-radius: 6px; white-space: pre-wrap; }
-      .error { color: red; font-weight: bold; }
+      @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+
+      body {
+        font-family: 'Roboto', sans-serif;
+        background: #f5f7fa;
+        padding: 40px 20px;
+        display: flex;
+        justify-content: center;
+      }
+
+      .card {
+        background: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+        max-width: 700px;
+        width: 100%;
+        padding: 30px 40px;
+        color: #333;
+      }
+
+      h2 {
+        margin-bottom: 25px;
+        color: #2c3e50;
+        font-weight: 700;
+        font-size: 28px;
+        letter-spacing: 1px;
+      }
+
+      textarea {
+        width: 100%;
+        height: 140px;
+        padding: 15px 18px;
+        border-radius: 8px;
+        border: 1.8px solid #ced4da;
+        font-size: 16px;
+        resize: vertical;
+        transition: border-color 0.3s ease;
+        font-family: 'Roboto', sans-serif;
+      }
+
+      textarea:focus {
+        border-color: #4a90e2;
+        outline: none;
+      }
+
+      label {
+        display: block;
+        margin-top: 25px;
+        font-weight: 600;
+        color: #555;
+        font-size: 16px;
+      }
+
+      select {
+        margin-top: 8px;
+        padding: 10px 14px;
+        font-size: 16px;
+        border-radius: 8px;
+        border: 1.8px solid #ced4da;
+        width: 100%;
+        transition: border-color 0.3s ease;
+        font-family: 'Roboto', sans-serif;
+      }
+
+      select:focus {
+        border-color: #4a90e2;
+        outline: none;
+      }
+
+      button {
+        margin-top: 30px;
+        background: #4a90e2;
+        border: none;
+        color: white;
+        font-weight: 700;
+        font-size: 18px;
+        padding: 14px 0;
+        width: 100%;
+        border-radius: 10px;
+        cursor: pointer;
+        box-shadow: 0 5px 10px rgba(74,144,226,0.4);
+        transition: background-color 0.3s ease;
+      }
+
+      button:hover {
+        background: #3c7bd9;
+        box-shadow: 0 7px 14px rgba(60,123,217,0.5);
+      }
+
+      #rewriteResult {
+        margin-top: 32px;
+        padding: 20px;
+        background: #f0f4ff;
+        border-radius: 10px;
+        border: 1.5px solid #c7d1ff;
+        color: #2c3e50;
+        font-size: 16px;
+        white-space: pre-wrap;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+
+      #rewriteResult b {
+        color: #1f3a93;
+      }
+
+      .error {
+        color: #d93025;
+        font-weight: 700;
+        background: #fdecea;
+        padding: 15px 20px;
+        border-radius: 10px;
+        border: 1.5px solid #f5c2c0;
+        font-size: 16px;
+      }
     </style>
   </head>
   <body>
     <div class="card">
       <h2>📘 貼上文章自動改寫</h2>
-      <textarea id="originalText" placeholder="請貼上原始文章..."></textarea><br><br>
+      <textarea id="originalText" placeholder="請貼上原始文章..."></textarea>
 
-      <label>選擇分類主題（可空白自動判斷）：</label><br>
-      <select id="topicSelect">
+      <label for="topicSelect">選擇分類主題（可空白自動判斷）：</label>
+      <select id="topicSelect" name="topicSelect" aria-label="分類主題選擇">
         <option value="">AI 自動判斷</option>
         <option>人生成長</option>
         <option>情感故事</option>
         <option>商業洞察</option>
         <option>科技未來</option>
         <option>品牌行銷</option>
-      </select><br>
+      </select>
 
       <button onclick="autoRewrite()">🚀 自動改寫</button>
-      <div id="rewriteResult" style="margin-top:20px;"></div>
+      <div id="rewriteResult" aria-live="polite" aria-atomic="true"></div>
     </div>
 
     <script>
       function autoRewrite() {
         const text = document.getElementById("originalText").value;
         const topic = document.getElementById("topicSelect").value;
+        const resultDiv = document.getElementById("rewriteResult");
 
         if (!text.trim()) {
           alert("請先貼上文章內容");
           return;
         }
 
-        const resultDiv = document.getElementById("rewriteResult");
         resultDiv.innerHTML = "⏳ 改寫中，請稍候...";
 
-        google.script.run.withSuccessHandler(res => {
-          if (res.error) {
-            resultDiv.innerHTML = `<div class="error">❌ 發生錯誤：${res.error}</div>`;
-          } else {
-            resultDiv.innerHTML = `
-              <b>🔖 類別：</b>${res.topic}<br>
-              <b>📌 推薦標題：</b>${res.title}<br><br>
-              <b>📝 改寫內容：</b><br><pre>${res.content}</pre>
-            `;
-          }
-        }).withFailureHandler(err => {
-          resultDiv.innerHTML = `<div class="error">❌ 呼叫失敗，請稍後再試</div>`;
-          console.error(err);
-        }).rewriteWithAI(text, topic);
+        google.script.run
+          .withSuccessHandler(res => {
+            if (res.error) {
+              resultDiv.innerHTML = `<div class="error">❌ 發生錯誤：${res.error}</div>`;
+            } else {
+              resultDiv.innerHTML = `
+                <b>🔖 類別：</b>${res.topic}<br>
+                <b>📌 推薦標題：</b>${res.title}<br><br>
+                <b>📝 改寫內容：</b><br><pre>${res.content}</pre>
+              `;
+            }
+          })
+          .withFailureHandler(err => {
+            resultDiv.innerHTML = `<div class="error">❌ 呼叫失敗，請稍後再試</div>`;
+            console.error(err);
+          })
+          .rewriteWithAI(text, topic);
       }
     </script>
   </body>
