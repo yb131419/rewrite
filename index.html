@@ -321,7 +321,8 @@
 
   // 分享內容到 LINE 或原生分享
   function shareToLine() {
-    const title = document.querySelector(".recommend-title-text")?.nextSibling?.textContent.trim() || "改寫內容";
+    const titleElem = document.querySelector(".recommend-title-text");
+    const title = titleElem ? titleElem.nextSibling.textContent.trim() : "改寫內容";
     const contentDiv = document.querySelector(".rewrite-text");
     let content = "";
 
