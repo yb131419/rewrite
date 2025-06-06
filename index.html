@@ -201,7 +201,7 @@
     // ====== 初始化 ======
     async function initLiff() {
       if (!window.liff) {
-        alert('❌ LIFF SDK 載入失敗，請確認網路連線或環境設定。');
+        showError('❌ LIFF SDK 載入失敗，請確認網路連線或環境設定。');
         return;
       }
       try {
@@ -210,7 +210,7 @@
         setupEventListeners();
         console.log("✅ LIFF 初始化成功，isInLine:", isInLine);
       } catch (err) {
-        alert('❌ LIFF 初始化失敗，請稍後重試');
+        showError('❌ LIFF 初始化失敗，請稍後重試');
         console.warn("LIFF 初始化失敗", err);
       }
     }
@@ -308,162 +308,144 @@
       document.getElementById('afterButtons').style.display = 'flex';
     }
 
-    // ====== 將純文字拆分段落並包裹 <p> ======
+    // ====== 將純文字轉成 <p> 包覆的段落 ====
     function formatContentWithParagraphs(text) {
-      const wrapper = document.createElement('div');
-      wrapper.className = 'rewrite-text';
-      const paragraphs = text.split(/\n+/).filter(p => p.trim() !== '');
-      paragraphs.forEach(p => {
-        const pEl = document.createElement('p');
-        pEl.textContent = p.trim();
-        wrapper.appendChild(pEl);
+      const div = document.createElement('div');
+      div.classList.add('rewrite-text');
+
+      text.split(/\n+/).forEach(line => {
+        if (line.trim()) {
+          const p = document.createElement('p');
+          p.textContent = line.trim();
+          div.appendChild(p);
+        }
       });
-      return wrapper;
+      return div;
     }
 
-    // ====== 清除結果與按鈕 ======
-    function clearResultAndButtons() {
-      document.getElementById('rewriteResult').innerHTML = '';
+    // ====== 複製結果 ======
+    function copyResult() {
+      if (!resultText) return;
+      navigator.clipboard.writeText(resultText).then(() => {
+        showBigAlert('已複製到剪貼簿');
+      });
+    }
+
+    // ====== 分享到LINE ======
+    function shareToLine() {
+      if (!resultText) return;
+      if (!window.liff) return;
+
+      liff.shareTargetPicker([
+        {
+          type: 'text',
+          text: resultText
+        }
+      ]).then(() => {
+        showBigAlert('分享成功');
+      }).catch(() => {
+        showBigAlert('分享已取消');
+      });
+    }
+
+    // ====== 轉成圖片並開啟新分頁 ======
+    function generateImageAndOpen() {
+      if (!resultText) return;
+      // 這邊因為無法用第三方庫，簡單用 Canvas 繪文字
+      // 實務建議用 html2canvas 或伺服器端生成圖片
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      const width = 600;
+      let lines = resultText.split('\n').filter(l => l.trim());
+      if (lines.length === 0) lines = [resultText];
+
+      // 文字行高與字體
+      const fontSize = 20;
+      const lineHeight = fontSize * 1.4;
+      canvas.width = width;
+      canvas.height = lineHeight * (lines.length + 1) + 40;
+
+      // 背景
+      ctx.fillStyle = '#121212';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // 文字樣式
+      ctx.fillStyle = '#74c0fc';
+      ctx.font = `${fontSize}px 'Roboto', sans-serif`;
+      ctx.textBaseline = 'top';
+
+      // 繪製每行文字
+      const padding = 20;
+      lines.forEach((line, i) => {
+        ctx.fillText(line, padding, padding + i * lineHeight);
+      });
+
+      // 產生圖片網址
+      const imgUrl = canvas.toDataURL('image/png');
+
+      window.open(imgUrl, '_blank');
+    }
+
+    // ====== 顯示載入中 ======
+    function showLoading(message) {
+      const container = document.getElementById('rewriteResult');
+      container.innerHTML = `<div style="color:#89caff; font-weight:bold;">${message}</div>`;
       document.getElementById('afterButtons').style.display = 'none';
-      disableRewriteBtn(false);
-      clearError();
+    }
+    function hideLoading() {
+      // 留空，結果會被直接替換
     }
 
     // ====== 顯示錯誤訊息 ======
-    function showError(msg) {
-      clearError();
+    function showError(message) {
       const container = document.getElementById('rewriteResult');
-      const errDiv = document.createElement('div');
-      errDiv.className = 'error';
-      errDiv.textContent = msg;
-      container.appendChild(errDiv);
+      container.innerHTML = `<div class="error" role="alert">${message}</div>`;
       document.getElementById('afterButtons').style.display = 'none';
     }
     function clearError() {
       const container = document.getElementById('rewriteResult');
-      const errors = container.querySelectorAll('.error');
-      errors.forEach(el => el.remove());
+      if (container.querySelector('.error')) {
+        container.innerHTML = '';
+      }
     }
 
-    // ====== 顯示「改寫中」loading字樣 ======
-    function showLoading(msg) {
+    // ====== 清除結果與按鈕 ======
+    function clearResultAndButtons() {
       const container = document.getElementById('rewriteResult');
-      container.innerHTML = `<b>${msg}</b>`;
+      container.innerHTML = '';
       document.getElementById('afterButtons').style.display = 'none';
-    }
-    function hideLoading() {
-      // 不作動，因為會在顯示結果時清空
+      resultText = '';
     }
 
     // ====== 按鈕狀態 ======
-    function disableRewriteBtn(disable) {
-      document.getElementById('rewriteBtn').disabled = disable;
+    function disableRewriteBtn(disabled) {
+      document.getElementById('rewriteBtn').disabled = disabled;
     }
 
-    // ====== 複製改寫結果 ======
-    function copyResult() {
-      if (!resultText) return alert('沒有可複製的內容');
-      navigator.clipboard.writeText(resultText).then(() => {
-        showBigAlert('✅ 複製成功！');
-      }).catch(() => {
-        alert('複製失敗，請手動複製');
-      });
-    }
-
-    // ====== 分享到 LINE (用 LIFF) ======
-    function shareToLine() {
-      if (!isInLine) {
-        alert("請在 LINE 內部使用分享功能");
-        return;
-      }
-      if (!resultText) {
-        alert("沒有改寫內容可以分享");
-        return;
-      }
-      liff.shareTargetPicker([{
-        type: 'text',
-        text: resultText
-      }]).then(() => {
-        showBigAlert("✅ 分享成功！");
-      }).catch(() => {
-        // 使用者取消分享不顯示提示
-      });
-    }
-
-    // ====== 生成圖片並開啟 ======
-    async function generateImageAndOpen() {
-      if (!resultText) return alert("請先完成改寫");
-      try {
-        // 使用 HTML Canvas 產生圖片
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const padding = 20;
-        const lineHeight = 24;
-        const maxWidth = 480 - padding * 2;
-        const fontSize = 18;
-        const fontFamily = "Roboto, sans-serif";
-
-        ctx.font = `${fontSize}px ${fontFamily}`;
-        ctx.fillStyle = "#fff";
-
-        // 自動換行計算字數與行數
-        const words = resultText.split(/\s+/);
-        let lines = [];
-        let line = '';
-        for (let i = 0; i < words.length; i++) {
-          const testLine = line + words[i] + ' ';
-          const metrics = ctx.measureText(testLine);
-          if (metrics.width > maxWidth && line !== '') {
-            lines.push(line.trim());
-            line = words[i] + ' ';
-          } else {
-            line = testLine;
-          }
-        }
-        if (line) lines.push(line.trim());
-
-        canvas.width = 480;
-        canvas.height = padding * 2 + lines.length * lineHeight;
-        // 背景色
-        ctx.fillStyle = "#121212";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        // 文字
-        ctx.fillStyle = "#ffffff";
-        ctx.font = `${fontSize}px ${fontFamily}`;
-        for (let i = 0; i < lines.length; i++) {
-          ctx.fillText(lines[i], padding, padding + (i + 1) * lineHeight);
-        }
-
-        const dataUrl = canvas.toDataURL('image/png');
-        window.open(dataUrl, '_blank');
-      } catch (err) {
-        alert("生成圖片失敗");
-        console.error(err);
-      }
-    }
-
-    // ====== 顯示大提示訊息 ======
-    function showBigAlert(msg) {
+    // ====== 顯示大提示 ======
+    function showBigAlert(message) {
       const alertBox = document.getElementById('bigAlert');
-      alertBox.textContent = msg;
+      alertBox.textContent = message;
       alertBox.style.display = 'block';
       setTimeout(() => {
         alertBox.style.display = 'none';
-      }, 2000);
+      }, 1500);
     }
 
-    // ====== 紀錄改寫行為到 Google Sheet API（非同步）=====
-    async function recordRewriteAction(data) {
-      try {
-        // API_URL 修改成你的紀錄端點
-        await fetch('https://script.google.com/macros/s/你的紀錄API_ID/exec', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
-        });
-      } catch (e) {
-        console.warn('紀錄改寫失敗', e);
-      }
+    // ====== 紀錄改寫行為 ======
+    function recordRewriteAction(data) {
+      // 非同步送資料到 Google Apps Script
+      fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      }).then(res => {
+        // console.log('行為紀錄成功');
+      }).catch(err => {
+        // console.warn('行為紀錄失敗', err);
+      });
     }
   </script>
 </body>
