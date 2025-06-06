@@ -4,8 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>彥彬 ✍️文案改寫</title>
-  <script src="https://static.line-scdn.net/liff/edge/2.1/sdk.min.js"></script>
+  <!-- 重要：加 onload 與 onerror -->
+  <script src="https://static.line-scdn.net/liff/edge/2.1/sdk.min.js" onload="initLiff()" onerror="alert('❌ LIFF SDK 載入失敗，請確認網路連線或環境設定。')"></script>
   <style>
+    /* 原本的 CSS 稍作省略，保留你的完整樣式 */
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
     body {
       font-family: 'Roboto', sans-serif;
@@ -190,12 +192,17 @@
     let resultText = '';
     let debounceTimer = null;
 
-    // 初始化 LIFF
+    // 初始化 LIFF - 會在 SDK script 載入完成後呼叫
     function initLiff() {
+      if (!window.liff) {
+        alert('❌ LIFF 物件不存在，初始化失敗');
+        return;
+      }
       liff.init({ liffId: "2007475335-63jZvMxQ" })
         .then(() => {
           isInLine = liff.isInClient();
           setupEventListeners();
+          console.log("✅ LIFF 初始化成功，isInLine:", isInLine);
         })
         .catch(err => {
           console.warn("LIFF 初始化失敗", err);
@@ -236,155 +243,170 @@
     // 執行改寫主程式
     function autoRewrite() {
       const text = document.getElementById("originalText").value.trim();
-      const topic = document.getElementById("topicSelect").value;
-      const length = document.getElementById("lengthSelect").value;
-      const resultDiv = document.getElementById("rewriteResult");
-      const btn = document.getElementById("rewriteBtn");
+      const topic = document.getElementById("topicSelect").value || "";
+      const length = document.getElementById("lengthSelect").value || "short";
 
       if (!text) {
-        alert("請先貼上文章內容");
+        showError("請先貼上文章內容！");
         return;
       }
 
-      btn.disabled = true;
-      btn.textContent = "✍️ 改寫中...";
-      resultDiv.innerHTML = "⏳ 改寫中，請稍候...";
-      document.getElementById("afterButtons").style.display = "none";
+      disableRewriteBtn(true);
+      clearError();
+      showLoading("改寫中... 請稍候");
 
-      // 呼叫 Google Apps Script 後端
-      if (typeof google !== 'undefined' && google.script && google.script.run) {
-        google.script.run
-          .withSuccessHandler(res => {
-            btn.disabled = false;
-            btn.textContent = "🚀 自動改寫";
+      // 呼叫 Apps Script 後端改寫函式
+      const payload = {
+        content: text,
+        topic: topic,
+        length: length
+      };
 
-            if (!res || typeof res !== 'object') {
-              resultDiv.innerHTML = `<div class="error">❌ 回傳資料格式錯誤</div>`;
-              return;
-            }
+      fetch('https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec', {  // 換成你的 GAS 部署網址
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(resp => resp.json())
+      .then(data => {
+        if (data.error) {
+          showError("❌ 改寫失敗：" + data.error);
+          disableRewriteBtn(false);
+          hideLoading();
+          return;
+        }
+        resultText = data.result || "";
+        if (!resultText) {
+          showError("❌ 改寫結果為空");
+          disableRewriteBtn(false);
+          hideLoading();
+          return;
+        }
+        displayResult(resultText);
+        disableRewriteBtn(false);
+        hideLoading();
+        // 顯示按鈕區
+        document.getElementById('afterButtons').style.display = 'flex';
 
-            if (res.error) {
-              resultDiv.innerHTML = `<div class="error">❌ 發生錯誤：${res.error}</div>`;
-              return;
-            }
+        // 在此也可呼叫寫入 Google Sheet API 或其他紀錄行為
 
-            if (!res.content || typeof res.content !== 'string') {
-              resultDiv.innerHTML = `<div class="error">❌ 改寫內容不存在或格式錯誤</div>`;
-              return;
-            }
+      })
+      .catch(err => {
+        showError("❌ 改寫失敗：" + err.message);
+        disableRewriteBtn(false);
+        hideLoading();
+      });
+    }
 
-            const formattedContent = formatContentWithParagraphs(res.content);
-
-            resultText = `📌 標題：\n${res.title || ''}\n\n📂 分類：\n${res.topic || ''}\n\n📝 改寫內容：\n${res.content}`;
-
-            resultDiv.innerHTML = `
-              <b>🔖 類別：</b>${res.topic || ''}
-              <b class="recommend-title-text">📌 推薦標題：</b>${res.title || ''}
-              <b>📝 改寫內容：</b>
-              <div class="rewrite-text">${formattedContent}</div>
-            `;
-
-            document.getElementById("afterButtons").style.display = "flex";
-
-            // 紀錄改寫歷史
-            google.script.run.recordRewriteHistory({
-              text,
-              topic,
-              length,
-              title: res.title,
-              content: res.content
-            });
-          })
-          .withFailureHandler(err => {
-            btn.disabled = false;
-            btn.textContent = "🚀 自動改寫";
-            resultDiv.innerHTML = `<div class="error">❌ 呼叫失敗，請稍後再試</div>`;
-            console.error(err);
-          })
-          .rewriteWithAI(text, topic, length);
-      } else {
-        btn.disabled = false;
-        btn.textContent = "🚀 自動改寫";
-        resultDiv.innerHTML = `<div class="error">❌ 無法呼叫 Google Apps Script，請在 Apps Script 環境中執行</div>`;
-      }
+    // 顯示改寫結果
+    function displayResult(text) {
+      const resultEl = document.getElementById("rewriteResult");
+      resultEl.innerHTML = formatContentWithParagraphs(text);
+      resultEl.classList.remove("error");
     }
 
     // 複製結果文字
     function copyResult() {
-      if (!resultText) return;
+      if (!resultText) {
+        alert("沒有改寫結果可複製");
+        return;
+      }
       navigator.clipboard.writeText(resultText)
-        .then(() => showBigAlert("✅ 已複製到剪貼簿！"))
-        .catch(() => alert("❌ 複製失敗，請手動複製"));
+        .then(() => showBigAlert("複製成功！"))
+        .catch(() => alert("複製失敗，請手動選取複製"));
     }
 
-    // 分享內容到 LINE 或原生分享
+    // 分享結果到 LINE
     function shareToLine() {
-      const titleElem = document.querySelector(".recommend-title-text");
-      const title = titleElem ? titleElem.nextSibling.textContent.trim() : "改寫內容";
-      const contentDiv = document.querySelector(".rewrite-text");
-      let content = "";
-
-      if (contentDiv) {
-        content = Array.from(contentDiv.querySelectorAll('p'))
-          .map(p => p.textContent.trim())
-          .filter(Boolean)
-          .join('\n\n');
+      if (!resultText) {
+        alert("沒有改寫結果可分享");
+        return;
       }
+      if (!isInLine) {
+        alert("請在 LINE 內部使用此功能");
+        return;
+      }
+      liff.shareTargetPicker([
+        {
+          type: 'text',
+          text: resultText
+        }
+      ]).then(() => {
+        showBigAlert("分享成功！");
+      }).catch(() => {
+        alert("分享取消或失敗");
+      });
+    }
 
-      const message = `📌 推薦標題：\n\n${title}\n\n📝 改寫內容：\n\n${content}`;
+    // 顯示 loading 提示
+    function showLoading(message) {
+      const resultEl = document.getElementById("rewriteResult");
+      resultEl.innerHTML = `<p>${message}</p>`;
+      resultEl.classList.remove("error");
+    }
 
-      if (isInLine && liff.isApiAvailable('shareTargetPicker')) {
-        liff.shareTargetPicker([{ type: "text", text: message }])
-          .then(() => showBigAlert("✅ 已分享！"))
-          .catch(err => {
-            console.error("❌ LINE 分享失敗", err);
-            alert("❌ 分享失敗，請稍後再試");
-          });
-      } else if (navigator.share) {
-        navigator.share({ title, text: message })
-          .then(() => showBigAlert("✅ 已分享！"))
-          .catch(err => {
-            console.error("❌ 原生分享失敗", err);
-            alert("❌ 分享失敗，請稍後再試");
-          });
-      } else {
-        alert("❌ 無法分享，請用 LINE App 或手機瀏覽器開啟");
+    // 顯示錯誤訊息
+    function showError(message) {
+      const resultEl = document.getElementById("rewriteResult");
+      resultEl.innerHTML = `<div class="error">${message}</div>`;
+    }
+
+    // 清除錯誤訊息
+    function clearError() {
+      const resultEl = document.getElementById("rewriteResult");
+      if (resultEl.classList.contains("error")) {
+        resultEl.innerHTML = "";
+        resultEl.classList.remove("error");
       }
     }
 
-    // 將文字產生圖片並開啟新視窗
+    // 按鈕啟用或禁用
+    function disableRewriteBtn(flag) {
+      document.getElementById("rewriteBtn").disabled = flag;
+    }
+
+    // 大提示訊息
+    function showBigAlert(msg) {
+      const alertEl = document.getElementById("bigAlert");
+      alertEl.textContent = msg;
+      alertEl.style.display = "block";
+      setTimeout(() => {
+        alertEl.style.display = "none";
+      }, 1800);
+    }
+
+    // 產生圖片並開啟新視窗 (簡單用 Canvas 製作圖片示範)
     function generateImageAndOpen() {
-      if (!resultText) return;
-
-      if (typeof google !== 'undefined' && google.script && google.script.run) {
-        google.script.run.withSuccessHandler(url => {
-          if (url && typeof url === 'string') {
-            window.open(url, '_blank');
-          } else {
-            alert("❌ 圖片產生失敗");
-          }
-        }).generateImageFromText(resultText);
-      } else {
-        alert("❌ 無法呼叫 Google Apps Script，請在 Apps Script 環境中執行");
+      if (!resultText) {
+        alert("請先完成改寫後再轉圖片");
+        return;
       }
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const padding = 20;
+      const lines = resultText.split('\n').filter(Boolean);
+      canvas.width = 720;
+      canvas.height = 100 + lines.length * 28;
+
+      // 背景
+      ctx.fillStyle = "#222";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // 文字設定
+      ctx.fillStyle = "#fff";
+      ctx.font = "20px 'Roboto', sans-serif";
+      ctx.textBaseline = "top";
+
+      let y = padding;
+      lines.forEach(line => {
+        ctx.fillText(line, padding, y);
+        y += 28;
+      });
+
+      // 轉成 dataURL
+      const dataUrl = canvas.toDataURL("image/png");
+      window.open(dataUrl, '_blank');
     }
-
-    // 顯示中央大提示訊息
-    function showBigAlert(message) {
-      const alertDiv = document.getElementById('bigAlert');
-      alertDiv.textContent = message;
-      alertDiv.style.display = 'block';
-
-      clearTimeout(alertDiv._timeout);
-      alertDiv._timeout = setTimeout(() => {
-        alertDiv.style.display = 'none';
-      }, 1600);
-    }
-
-    // 頁面載入後初始化
-    window.onload = () => {
-      initLiff();
-    };
   </script>
 </body>
 </html>
