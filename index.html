@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>彥彬 ✍️文案改寫（完整版）</title>
+  <title>彥彬 ✍️文案改寫</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
     body {
@@ -185,6 +185,7 @@
         isInLine = liff.isInClient();
       } catch (e) {
         console.warn("LIFF 初始化失敗，切換為 Web 瀏覽器模式");
+        isInLine = false;
       }
       setupEventListeners();
     }
@@ -192,8 +193,9 @@
     function setupEventListeners() {
       const textArea = document.getElementById('originalText');
       textArea.addEventListener('input', () => {
+        clearError();
+        clearResultAndButtons();
         if (textArea.value.trim()) debounceAutoRewrite();
-        else clearResultAndButtons();
       });
 
       document.getElementById('topicSelect').addEventListener('change', () => {
@@ -217,7 +219,10 @@
       const topic = document.getElementById('topicSelect').value;
       const length = document.getElementById('lengthSelect').value;
 
-      if (!originalText) return showError("請先輸入文章");
+      if (!originalText) {
+        showError("請先輸入文章");
+        return;
+      }
       clearError();
       showLoading("改寫中 ...");
       disableRewriteBtn(true);
@@ -255,6 +260,7 @@
     function showResult(text) {
       const div = document.getElementById('rewriteResult');
       div.classList.remove('error');
+      // 安全轉義並用<p>包裝換行
       div.innerHTML = text.split('\n').map(p => `<p>${escapeHtml(p)}</p>`).join('');
     }
 
@@ -271,11 +277,14 @@
     }
 
     function clearError() {
-      document.getElementById('rewriteResult').classList.remove('error');
+      const div = document.getElementById('rewriteResult');
+      div.classList.remove('error');
+      div.textContent = '';
     }
 
     function clearResultAndButtons() {
-      document.getElementById('rewriteResult').textContent = '';
+      const div = document.getElementById('rewriteResult');
+      div.textContent = '';
       showAfterButtons(false);
       resultText = '';
     }
@@ -297,12 +306,14 @@
     async function generateImageAndOpen() {
       if (!resultText) return alert("請先改寫文章後再轉圖片");
       try {
+        // TODO: 替換成你自己的圖片產生 API 或服務網址
         const res = await fetch('https://your-image-api.example.com/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: resultText })
         });
-        const { imageUrl } = await res.json();
+        const json = await res.json();
+        const imageUrl = json.imageUrl || json.url; // 常見的欄位名稱
         if (!imageUrl) throw new Error("無法取得圖片連結");
         window.open(imageUrl, '_blank');
       } catch (err) {
@@ -328,8 +339,12 @@
     }
 
     window.addEventListener('load', () => {
-      if (!window.liff) setupEventListeners();
-      else initLiff();
+      if (window.liff) {
+        initLiff();
+      } else {
+        isInLine = false;
+        setupEventListeners();
+      }
     });
   </script>
 </body>
