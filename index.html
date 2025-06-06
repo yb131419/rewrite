@@ -1,4 +1,3 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html>
   <head>
@@ -9,6 +8,7 @@
       textarea { width: 100%; height: 120px; padding: 10px; border-radius: 6px; border: 1px solid #ddd; }
       select, button { padding: 8px; font-size: 14px; border-radius: 5px; margin-top: 10px; }
       pre { background: #efefef; padding: 10px; border-radius: 6px; white-space: pre-wrap; }
+      .error { color: red; font-weight: bold; }
     </style>
   </head>
   <body>
@@ -40,14 +40,22 @@
           return;
         }
 
-        document.getElementById("rewriteResult").innerHTML = "⏳ 改寫中，請稍候...";
+        const resultDiv = document.getElementById("rewriteResult");
+        resultDiv.innerHTML = "⏳ 改寫中，請稍候...";
 
-        google.script.run.withSuccessHandler((res) => {
-          document.getElementById("rewriteResult").innerHTML = `
-            <b>🔖 類別：</b>${res.topic}<br>
-            <b>📌 推薦標題：</b>${res.title}<br><br>
-            <b>📝 改寫內容：</b><br><pre>${res.content}</pre>
-          `;
+        google.script.run.withSuccessHandler(res => {
+          if (res.error) {
+            resultDiv.innerHTML = `<div class="error">❌ 發生錯誤：${res.error}</div>`;
+          } else {
+            resultDiv.innerHTML = `
+              <b>🔖 類別：</b>${res.topic}<br>
+              <b>📌 推薦標題：</b>${res.title}<br><br>
+              <b>📝 改寫內容：</b><br><pre>${res.content}</pre>
+            `;
+          }
+        }).withFailureHandler(err => {
+          resultDiv.innerHTML = `<div class="error">❌ 呼叫失敗，請稍後再試</div>`;
+          console.error(err);
         }).rewriteWithAI(text, topic);
       }
     </script>
