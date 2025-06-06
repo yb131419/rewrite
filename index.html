@@ -342,10 +342,14 @@
     function displayResult(text) {
       const el = document.getElementById("rewriteResult");
       el.innerHTML = `<b>改寫結果：</b><div class="rewrite-text">${formatContentWithParagraphs(text)}</div>`;
-      clearError();
     }
 
-    // 顯示錯誤訊息
+    // 按鈕狀態控制
+    function disableRewriteBtn(isDisabled) {
+      document.getElementById("rewriteBtn").disabled = isDisabled;
+    }
+
+    // 錯誤訊息顯示
     function showError(msg) {
       const el = document.getElementById("rewriteResult");
       el.innerHTML = `<div class="error" role="alert">${msg}</div>`;
@@ -353,70 +357,113 @@
 
     function clearError() {
       const el = document.getElementById("rewriteResult");
-      if (el.querySelector(".error")) {
+      if (el.querySelector('.error')) {
         el.innerHTML = '';
       }
     }
 
-    // 顯示「改寫中」大提示
+    // 大字彈跳提示
     function showLoading(msg) {
       const alertEl = document.getElementById("bigAlert");
       alertEl.textContent = msg;
       alertEl.style.display = "block";
     }
-
     function hideLoading() {
       const alertEl = document.getElementById("bigAlert");
       alertEl.style.display = "none";
     }
 
-    // 按鈕可用狀態切換
-    function disableRewriteBtn(disable) {
-      document.getElementById("rewriteBtn").disabled = disable;
-    }
-
-    // 複製改寫結果
+    // 複製改寫結果到剪貼簿
     function copyResult() {
-      if (!resultText) return alert("沒有改寫內容可複製！");
-      navigator.clipboard.writeText(resultText)
-        .then(() => alert("📋 已複製改寫內容！"))
-        .catch(() => alert("❌ 複製失敗，請手動複製。"));
-    }
-
-    // 分享改寫結果到 LINE
-    async function shareToLine() {
-      if (!resultText) return alert("沒有改寫內容可分享！");
-      if (!isInLine) {
-        alert("請在 LINE APP 中使用分享功能。");
+      if (!resultText) {
+        alert("沒有改寫結果可複製！");
         return;
       }
-      try {
-        await liff.shareTargetPicker([{ type: 'text', text: resultText }]);
-      } catch (e) {
-        alert("分享失敗：" + e.message);
-      }
+      navigator.clipboard.writeText(resultText).then(() => {
+        alert("✅ 已複製改寫結果到剪貼簿！");
+      }).catch(() => {
+        alert("❌ 複製失敗，請手動複製內容。");
+      });
     }
 
-    // 將文案轉圖片並開啟新分頁 (此為示範功能)
-    function generateImageAndOpen() {
-      if (!resultText) return alert("沒有改寫內容可轉圖片！");
-      // 簡單示範將文字生成圖片的思路（可改用你想的 API 或方案）
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      canvas.width = 800;
-      canvas.height = 600;
-      ctx.fillStyle = '#121212';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#eee';
-      ctx.font = '20px Roboto';
-      const lines = resultText.split('\n');
-      let y = 40;
-      lines.forEach(line => {
-        ctx.fillText(line, 20, y);
-        y += 30;
+    // 分享到 LINE
+    function shareToLine() {
+      if (!resultText) {
+        alert("沒有改寫結果可分享！");
+        return;
+      }
+      if (!isInLine) {
+        alert("此功能僅限於 LINE 內部使用");
+        return;
+      }
+      liff.shareTargetPicker([
+        {
+          type: "text",
+          text: resultText
+        }
+      ]).then(() => {
+        alert("✅ 分享成功！");
+      }).catch(() => {
+        alert("❌ 分享失敗或取消分享");
       });
-      const imgUrl = canvas.toDataURL('image/png');
-      window.open(imgUrl, '_blank');
+    }
+
+    // 文案轉圖片功能（用 Canvas 動態產生圖片）
+    async function generateImageAndOpen() {
+      if (!resultText) {
+        alert("沒有改寫結果可轉圖片！");
+        return;
+      }
+
+      try {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+
+        // 設定畫布大小，寬480，高度依字數自動調整
+        const width = 480;
+        const lineHeight = 26;
+        const padding = 24;
+        const lines = resultText.split('\n').map(line => line.trim());
+        const textLines = [];
+        // 將長句拆行
+        lines.forEach(line => {
+          if (line.length <= 40) {
+            textLines.push(line);
+          } else {
+            // 每40字拆行
+            for (let i = 0; i < line.length; i += 40) {
+              textLines.push(line.slice(i, i + 40));
+            }
+          }
+        });
+        const height = padding * 2 + textLines.length * lineHeight;
+
+        canvas.width = width;
+        canvas.height = height;
+
+        // 背景
+        ctx.fillStyle = '#1e1e1e';
+        ctx.fillRect(0, 0, width, height);
+
+        // 文字設定
+        ctx.fillStyle = '#74c0fc';
+        ctx.font = "20px 'Roboto', sans-serif";
+        ctx.textBaseline = "top";
+
+        // 寫字
+        textLines.forEach((line, idx) => {
+          ctx.fillText(line, padding, padding + idx * lineHeight);
+        });
+
+        // 產生圖片連結並開啟
+        const dataUrl = canvas.toDataURL("image/png");
+
+        // 使用 window.open 新分頁開啟圖片
+        window.open(dataUrl, "_blank");
+
+      } catch (e) {
+        alert("❌ 轉圖片失敗：" + e.message);
+      }
     }
   </script>
 </body>
