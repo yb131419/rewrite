@@ -1,155 +1,55 @@
+<!-- index.html -->
 <!DOCTYPE html>
-<html lang="zh-Hant">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>文章改寫與推播管理系統</title>
-  <style>
-    body {
-      font-family: "微軟正黑體", Arial, sans-serif;
-      margin: 20px;
-      background: #f5f7fa;
-      color: #333;
-    }
-    h1 {
-      text-align: center;
-      color: #444;
-    }
-    #userEmail {
-      text-align: right;
-      margin-bottom: 20px;
-      color: #666;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: #fff;
-      box-shadow: 0 0 8px rgba(0,0,0,0.05);
-    }
-    th, td {
-      padding: 10px 12px;
-      border-bottom: 1px solid #eee;
-      text-align: left;
-    }
-    th {
-      background: #0078d7;
-      color: white;
-    }
-    tr:hover {
-      background-color: #f0f8ff;
-    }
-    button {
-      background-color: #0078d7;
-      border: none;
-      color: white;
-      padding: 6px 12px;
-      margin: 2px;
-      border-radius: 3px;
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
-    button:hover {
-      background-color: #005a9e;
-    }
-    .status {
-      font-weight: bold;
-      font-size: 0.9em;
-    }
-    .status.已改寫 {
-      color: #f0ad4e;
-    }
-    .status.已推播 {
-      color: #5cb85c;
-    }
-  </style>
-</head>
-<body>
-  <h1>文章改寫與推播管理系統</h1>
-  <div id="userEmail">使用者：<span id="email"></span></div>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      body { font-family: 'Segoe UI', sans-serif; padding: 20px; }
+      .card { border: 1px solid #ccc; border-radius: 10px; padding: 20px; margin-bottom: 20px; background-color: #f9f9f9; }
+      textarea { width: 100%; height: 120px; padding: 10px; border-radius: 6px; border: 1px solid #ddd; }
+      select, button { padding: 8px; font-size: 14px; border-radius: 5px; margin-top: 10px; }
+      pre { background: #efefef; padding: 10px; border-radius: 6px; white-space: pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h2>📘 貼上文章自動改寫</h2>
+      <textarea id="originalText" placeholder="請貼上原始文章..."></textarea><br><br>
 
-  <table id="dataTable">
-    <thead>
-      <tr>
-        <th>時間</th>
-        <th>原始內容</th>
-        <th>分類</th>
-        <th>改寫內容</th>
-        <th>推薦標題</th>
-        <th>狀態</th>
-        <th>操作</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+      <label>選擇分類主題（可空白自動判斷）：</label><br>
+      <select id="topicSelect">
+        <option value="">AI 自動判斷</option>
+        <option>人生成長</option>
+        <option>情感故事</option>
+        <option>商業洞察</option>
+        <option>科技未來</option>
+        <option>品牌行銷</option>
+      </select><br>
 
-  <script>
-    function renderRows(data) {
-      const tbody = document.querySelector("#dataTable tbody");
-      tbody.innerHTML = "";
-      data.forEach((item) => {
-        const tr = document.createElement("tr");
+      <button onclick="autoRewrite()">🚀 自動改寫</button>
+      <div id="rewriteResult" style="margin-top:20px;"></div>
+    </div>
 
-        tr.innerHTML = `
-          <td>${item["時間"]}</td>
-          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${item["原始內容"]}">${item["原始內容"]}</td>
-          <td>${item["分類"] || ""}</td>
-          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${item["改寫內容"] || ""}">${item["改寫內容"] || ""}</td>
-          <td>${item["推薦標題"] || ""}</td>
-          <td class="status ${item["狀態"] || ""}">${item["狀態"] || ""}</td>
-          <td>
-            <button onclick="rewriteArticle(${item._rowIndex})">改寫</button>
-            <button onclick="pushFlex(${item._rowIndex})" ${item["狀態"] !== "已改寫" ? "disabled" : ""}>推播</button>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
+    <script>
+      function autoRewrite() {
+        const text = document.getElementById("originalText").value;
+        const topic = document.getElementById("topicSelect").value;
 
-    // 取得使用者 Email
-    function loadUser() {
-      google.script.run
-        .withSuccessHandler(email => {
-          document.getElementById("email").textContent = email;
-        })
-        .getCurrentUserEmail();
-    }
+        if (!text.trim()) {
+          alert("請先貼上文章內容");
+          return;
+        }
 
-    // 載入資料
-    function loadData() {
-      google.script.run
-        .withSuccessHandler(renderRows)
-        .withFailureHandler(e => alert("載入資料失敗：" + e.message))
-        .getAllRows();
-    }
+        document.getElementById("rewriteResult").innerHTML = "⏳ 改寫中，請稍候...";
 
-    // 改寫文章
-    function rewriteArticle(rowIndex) {
-      if (!confirm("確定要使用 AI 改寫這篇文章嗎？")) return;
-      google.script.run
-        .withSuccessHandler(() => {
-          alert("改寫完成");
-          loadData();
-        })
-        .withFailureHandler(e => alert("改寫失敗：" + e.message))
-        .aiRewriteAndClassify(rowIndex);
-    }
-
-    // Flex Message 推播
-    function pushFlex(rowIndex) {
-      if (!confirm("確定要推播這篇改寫後的文章嗎？")) return;
-      google.script.run
-        .withSuccessHandler(() => {
-          alert("推播成功");
-          loadData();
-        })
-        .withFailureHandler(e => alert("推播失敗：" + e.message))
-        .pushRowFlexMessage(rowIndex);
-    }
-
-    window.onload = () => {
-      loadUser();
-      loadData();
-    };
-  </script>
-</body>
+        google.script.run.withSuccessHandler((res) => {
+          document.getElementById("rewriteResult").innerHTML = `
+            <b>🔖 類別：</b>${res.topic}<br>
+            <b>📌 推薦標題：</b>${res.title}<br><br>
+            <b>📝 改寫內容：</b><br><pre>${res.content}</pre>
+          `;
+        }).rewriteWithAI(text, topic);
+      }
+    </script>
+  </body>
 </html>
