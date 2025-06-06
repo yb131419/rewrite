@@ -185,205 +185,206 @@
 
   <div id="bigAlert" role="alert" aria-live="assertive"></div>
 
-  <script src="https://static.line-scdn.net/liff/edge/2.1/sdk.min.js" onload="initLiff()"></script>
+  <script>
+    let isInLine = false;
+    let resultText = '';
+    let debounceTimer = null;
 
-<script>
-  let isInLine = false;
-  let resultText = '';
-  let debounceTimer = null;
+    // 初始化 LIFF
+    function initLiff() {
+      liff.init({ liffId: "2007475335-63jZvMxQ" })
+        .then(() => {
+          isInLine = liff.isInClient();
+          setupEventListeners();
+        })
+        .catch(err => {
+          console.warn("LIFF 初始化失敗", err);
+        });
+    }
 
-  // 初始化 LIFF
-  function initLiff() {
-    liff.init({ liffId: "2007475335-63jZvMxQ" })
-      .then(() => {
-        isInLine = liff.isInClient();
-        setupEventListeners();
-      })
-      .catch(err => {
-        console.warn("LIFF 初始化失敗", err);
+    // 綁定事件監聽器
+    function setupEventListeners() {
+      const textarea = document.getElementById('originalText');
+      textarea.addEventListener('input', () => {
+        if (textarea.value.trim()) debounceAutoRewrite();
       });
-  }
 
-  // 綁定事件監聽器
-  function setupEventListeners() {
-    const textarea = document.getElementById('originalText');
-    textarea.addEventListener('input', () => {
-      if (textarea.value.trim()) debounceAutoRewrite();
-    });
+      document.getElementById('topicSelect').addEventListener('change', () => {
+        if (textarea.value.trim()) autoRewrite();
+      });
 
-    document.getElementById('topicSelect').addEventListener('change', () => {
-      if (textarea.value.trim()) autoRewrite();
-    });
-
-    document.getElementById('lengthSelect').addEventListener('change', () => {
-      if (textarea.value.trim()) autoRewrite();
-    });
-  }
-
-  // 防抖動自動改寫
-  function debounceAutoRewrite() {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
-      autoRewrite();
-    }, 1000);
-  }
-
-  // 內容轉成有段落 <p> 標籤
-  function formatContentWithParagraphs(content) {
-    if (typeof content !== 'string' || !content.trim()) return '';
-    const paragraphs = content.split(/\n\n|\n|(?<=。)/).map(p => p.trim()).filter(Boolean);
-    return paragraphs.map(p => `<p>${p}</p>`).join('');
-  }
-
-  // 執行改寫主程式
-  function autoRewrite() {
-    const text = document.getElementById("originalText").value.trim();
-    const topic = document.getElementById("topicSelect").value;
-    const length = document.getElementById("lengthSelect").value;
-    const resultDiv = document.getElementById("rewriteResult");
-    const btn = document.getElementById("rewriteBtn");
-
-    if (!text) {
-      alert("請先貼上文章內容");
-      return;
+      document.getElementById('lengthSelect').addEventListener('change', () => {
+        if (textarea.value.trim()) autoRewrite();
+      });
     }
 
-    btn.disabled = true;
-    btn.textContent = "✍️ 改寫中...";
-    resultDiv.innerHTML = "⏳ 改寫中，請稍候...";
-    document.getElementById("afterButtons").style.display = "none";
+    // 防抖動自動改寫
+    function debounceAutoRewrite() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        autoRewrite();
+      }, 1000);
+    }
 
-    // 呼叫 Google Apps Script 後端
-    if (typeof google !== 'undefined' && google.script && google.script.run) {
-      google.script.run
-        .withSuccessHandler(res => {
-          btn.disabled = false;
-          btn.textContent = "🚀 自動改寫";
+    // 內容轉成有段落 <p> 標籤
+    function formatContentWithParagraphs(content) {
+      if (typeof content !== 'string' || !content.trim()) return '';
+      const paragraphs = content.split(/\n\n|\n|(?<=。)/).map(p => p.trim()).filter(Boolean);
+      return paragraphs.map(p => `<p>${p}</p>`).join('');
+    }
 
-          if (!res || typeof res !== 'object') {
-            resultDiv.innerHTML = `<div class="error">❌ 回傳資料格式錯誤</div>`;
-            return;
-          }
+    // 執行改寫主程式
+    function autoRewrite() {
+      const text = document.getElementById("originalText").value.trim();
+      const topic = document.getElementById("topicSelect").value;
+      const length = document.getElementById("lengthSelect").value;
+      const resultDiv = document.getElementById("rewriteResult");
+      const btn = document.getElementById("rewriteBtn");
 
-          if (res.error) {
-            resultDiv.innerHTML = `<div class="error">❌ 發生錯誤：${res.error}</div>`;
-            return;
-          }
+      if (!text) {
+        alert("請先貼上文章內容");
+        return;
+      }
 
-          if (!res.content || typeof res.content !== 'string') {
-            resultDiv.innerHTML = `<div class="error">❌ 改寫內容不存在或格式錯誤</div>`;
-            return;
-          }
+      btn.disabled = true;
+      btn.textContent = "✍️ 改寫中...";
+      resultDiv.innerHTML = "⏳ 改寫中，請稍候...";
+      document.getElementById("afterButtons").style.display = "none";
 
-          const formattedContent = formatContentWithParagraphs(res.content);
+      // 呼叫 Google Apps Script 後端
+      if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler(res => {
+            btn.disabled = false;
+            btn.textContent = "🚀 自動改寫";
 
-          resultText = `📌 標題：\n${res.title || ''}\n\n📂 分類：\n${res.topic || ''}\n\n📝 改寫內容：\n${res.content}`;
+            if (!res || typeof res !== 'object') {
+              resultDiv.innerHTML = `<div class="error">❌ 回傳資料格式錯誤</div>`;
+              return;
+            }
 
-          resultDiv.innerHTML = `
-            <b>🔖 類別：</b>${res.topic || ''}
-            <b class="recommend-title-text">📌 推薦標題：</b>${res.title || ''}
-            <b>📝 改寫內容：</b>
-            <div class="rewrite-text">${formattedContent}</div>
-          `;
+            if (res.error) {
+              resultDiv.innerHTML = `<div class="error">❌ 發生錯誤：${res.error}</div>`;
+              return;
+            }
 
-          document.getElementById("afterButtons").style.display = "flex";
+            if (!res.content || typeof res.content !== 'string') {
+              resultDiv.innerHTML = `<div class="error">❌ 改寫內容不存在或格式錯誤</div>`;
+              return;
+            }
 
-          // 紀錄改寫歷史
-          google.script.run.recordRewriteHistory({
-            text,
-            topic,
-            length,
-            title: res.title,
-            content: res.content
+            const formattedContent = formatContentWithParagraphs(res.content);
+
+            resultText = `📌 標題：\n${res.title || ''}\n\n📂 分類：\n${res.topic || ''}\n\n📝 改寫內容：\n${res.content}`;
+
+            resultDiv.innerHTML = `
+              <b>🔖 類別：</b>${res.topic || ''}
+              <b class="recommend-title-text">📌 推薦標題：</b>${res.title || ''}
+              <b>📝 改寫內容：</b>
+              <div class="rewrite-text">${formattedContent}</div>
+            `;
+
+            document.getElementById("afterButtons").style.display = "flex";
+
+            // 紀錄改寫歷史
+            google.script.run.recordRewriteHistory({
+              text,
+              topic,
+              length,
+              title: res.title,
+              content: res.content
+            });
+          })
+          .withFailureHandler(err => {
+            btn.disabled = false;
+            btn.textContent = "🚀 自動改寫";
+            resultDiv.innerHTML = `<div class="error">❌ 呼叫失敗，請稍後再試</div>`;
+            console.error(err);
+          })
+          .rewriteWithAI(text, topic, length);
+      } else {
+        btn.disabled = false;
+        btn.textContent = "🚀 自動改寫";
+        resultDiv.innerHTML = `<div class="error">❌ 無法呼叫 Google Apps Script，請在 Apps Script 環境中執行</div>`;
+      }
+    }
+
+    // 複製結果文字
+    function copyResult() {
+      if (!resultText) return;
+      navigator.clipboard.writeText(resultText)
+        .then(() => showBigAlert("✅ 已複製到剪貼簿！"))
+        .catch(() => alert("❌ 複製失敗，請手動複製"));
+    }
+
+    // 分享內容到 LINE 或原生分享
+    function shareToLine() {
+      const titleElem = document.querySelector(".recommend-title-text");
+      const title = titleElem ? titleElem.nextSibling.textContent.trim() : "改寫內容";
+      const contentDiv = document.querySelector(".rewrite-text");
+      let content = "";
+
+      if (contentDiv) {
+        content = Array.from(contentDiv.querySelectorAll('p'))
+          .map(p => p.textContent.trim())
+          .filter(Boolean)
+          .join('\n\n');
+      }
+
+      const message = `📌 推薦標題：\n\n${title}\n\n📝 改寫內容：\n\n${content}`;
+
+      if (isInLine && liff.isApiAvailable('shareTargetPicker')) {
+        liff.shareTargetPicker([{ type: "text", text: message }])
+          .then(() => showBigAlert("✅ 已分享！"))
+          .catch(err => {
+            console.error("❌ LINE 分享失敗", err);
+            alert("❌ 分享失敗，請稍後再試");
           });
-        })
-        .withFailureHandler(err => {
-          btn.disabled = false;
-          btn.textContent = "🚀 自動改寫";
-          resultDiv.innerHTML = `<div class="error">❌ 呼叫失敗，請稍後再試</div>`;
-          console.error(err);
-        })
-        .rewriteWithAI(text, topic, length);
-    } else {
-      btn.disabled = false;
-      btn.textContent = "🚀 自動改寫";
-      resultDiv.innerHTML = `<div class="error">❌ 無法呼叫 Google Apps Script，請在 Apps Script 環境中執行</div>`;
-    }
-  }
-
-  // 複製結果文字
-  function copyResult() {
-    if (!resultText) return;
-    navigator.clipboard.writeText(resultText)
-      .then(() => showBigAlert("✅ 已複製到剪貼簿！"))
-      .catch(() => alert("❌ 複製失敗，請手動複製"));
-  }
-
-  // 分享內容到 LINE 或原生分享
-  function shareToLine() {
-    const titleElem = document.querySelector(".recommend-title-text");
-    const title = titleElem ? titleElem.nextSibling.textContent.trim() : "改寫內容";
-    const contentDiv = document.querySelector(".rewrite-text");
-    let content = "";
-
-    if (contentDiv) {
-      content = Array.from(contentDiv.querySelectorAll('p'))
-        .map(p => p.textContent.trim())
-        .filter(Boolean)
-        .join('\n\n');
+      } else if (navigator.share) {
+        navigator.share({ title, text: message })
+          .then(() => showBigAlert("✅ 已分享！"))
+          .catch(err => {
+            console.error("❌ 原生分享失敗", err);
+            alert("❌ 分享失敗，請稍後再試");
+          });
+      } else {
+        alert("❌ 無法分享，請用 LINE App 或手機瀏覽器開啟");
+      }
     }
 
-    const message = `📌 推薦標題：\n\n${title}\n\n📝 改寫內容：\n\n${content}`;
+    // 將文字產生圖片並開啟新視窗
+    function generateImageAndOpen() {
+      if (!resultText) return;
 
-    if (isInLine && liff.isApiAvailable('shareTargetPicker')) {
-      liff.shareTargetPicker([{ type: "text", text: message }])
-        .then(() => showBigAlert("✅ 已分享！"))
-        .catch(err => {
-          console.error("❌ LINE 分享失敗", err);
-          alert("❌ 分享失敗，請稍後再試");
-        });
-    } else if (navigator.share) {
-      navigator.share({ title, text: message })
-        .then(() => showBigAlert("✅ 已分享！"))
-        .catch(err => {
-          console.error("❌ 原生分享失敗", err);
-          alert("❌ 分享失敗，請稍後再試");
-        });
-    } else {
-      alert("❌ 無法分享，請用 LINE App 或手機瀏覽器開啟");
+      if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run.withSuccessHandler(url => {
+          if (url && typeof url === 'string') {
+            window.open(url, '_blank');
+          } else {
+            alert("❌ 圖片產生失敗");
+          }
+        }).generateImageFromText(resultText);
+      } else {
+        alert("❌ 無法呼叫 Google Apps Script，請在 Apps Script 環境中執行");
+      }
     }
-  }
 
-  // 將文字產生圖片並開啟新視窗
-  function generateImageAndOpen() {
-    if (!resultText) return;
+    // 顯示中央大提示訊息
+    function showBigAlert(message) {
+      const alertDiv = document.getElementById('bigAlert');
+      alertDiv.textContent = message;
+      alertDiv.style.display = 'block';
 
-    if (typeof google !== 'undefined' && google.script && google.script.run) {
-      google.script.run.withSuccessHandler(url => {
-        if (url && typeof url === 'string') {
-          window.open(url, '_blank');
-        } else {
-          alert("❌ 圖片產生失敗");
-        }
-      }).generateImageFromText(resultText);
-    } else {
-      alert("❌ 無法呼叫 Google Apps Script，請在 Apps Script 環境中執行");
+      clearTimeout(alertDiv._timeout);
+      alertDiv._timeout = setTimeout(() => {
+        alertDiv.style.display = 'none';
+      }, 1600);
     }
-  }
 
-  // 顯示中央大提示訊息
-  function showBigAlert(message) {
-    const alertDiv = document.getElementById('bigAlert');
-    alertDiv.textContent = message;
-    alertDiv.style.display = 'block';
-
-    clearTimeout(alertDiv._timeout);
-    alertDiv._timeout = setTimeout(() => {
-      alertDiv.style.display = 'none';
-    }, 2000);
-  }
-</script>
-
-
+    // 頁面載入後初始化
+    window.onload = () => {
+      initLiff();
+    };
+  </script>
 </body>
 </html>
