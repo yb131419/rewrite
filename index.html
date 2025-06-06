@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>彥彬 ✍️文案改寫（完整版）</title>
+  <title>彥彬 ✍️文案改寫</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
     body {
@@ -91,17 +91,6 @@
       position: relative;
       white-space: pre-wrap;
     }
-    #rewriteResult b {
-      display: block;
-      margin-top: 12px;
-      color: #74c0fc;
-      font-weight: 600;
-      font-size: 15px;
-    }
-    .rewrite-text p {
-      margin: 10px 0;
-      line-height: 1.8;
-    }
     .error {
       background: #3c1e1e;
       border: 1px solid #d93025;
@@ -130,12 +119,6 @@
     .action-buttons button:hover {
       background: #444;
     }
-    @media (min-width: 600px) {
-      .card { padding: 24px; }
-      h2 { font-size: 22px; }
-      button { font-size: 17px; }
-      #rewriteResult { font-size: 15.5px; }
-    }
     #bigAlert {
       position: fixed;
       top: 30%;
@@ -157,12 +140,12 @@
   </style>
 </head>
 <body>
-  <div class="card" role="main">
+  <div class="card">
     <h2>📘 彥彬文案改寫、貼上文章自動改寫</h2>
-    <textarea id="originalText" placeholder="請貼上原始文章..." aria-label="原始文章內容"></textarea>
+    <textarea id="originalText" placeholder="請貼上原始文章..."></textarea>
 
     <label for="topicSelect">選擇分類主題（可AI自動判斷）：</label>
-    <select id="topicSelect" name="topicSelect" aria-label="分類主題選擇">
+    <select id="topicSelect">
       <option value="">AI 自動判斷</option>
       <option value="人生成長">人生成長</option>
       <option value="情感故事">情感故事</option>
@@ -172,14 +155,14 @@
     </select>
 
     <label for="lengthSelect">選擇改寫長度：</label>
-    <select id="lengthSelect" name="lengthSelect" aria-label="改寫長度選擇">
+    <select id="lengthSelect">
       <option value="short" selected>短故事（約95～115字）</option>
       <option value="long">長故事（約165～180字）</option>
     </select>
 
     <button id="rewriteBtn" onclick="autoRewrite()">🚀 自動改寫</button>
 
-    <div id="rewriteResult" aria-live="polite" aria-atomic="true"></div>
+    <div id="rewriteResult"></div>
 
     <div class="action-buttons" style="display:none;" id="afterButtons">
       <button onclick="copyResult()">📋 複製內容</button>
@@ -188,56 +171,38 @@
     </div>
   </div>
 
-  <div id="bigAlert" role="alert" aria-live="assertive"></div>
+  <div id="bigAlert"></div>
 
   <script src="https://static.line-scdn.net/liff/edge/2.1/sdk.min.js"></script>
   <script>
-    let isInLine = false;
-    let resultText = '';
-    let debounceTimer = null;
     const API_URL = 'https://script.google.com/macros/s/AKfycbwLC4EfEtyQZ1vejtp4u7cQ3vuRkFf7RDWlIa_je_DkAME0E0HjRvVSBfWpee-jiVIu/exec';
+    let resultText = '';
+    let isInLine = false;
+    let debounceTimer = null;
 
     async function initLiff() {
-      if (!window.liff) {
-        showError('❌ LIFF SDK 載入失敗，請確認網路連線或環境設定。');
-        return;
-      }
       try {
         await liff.init({ liffId: "2007488640-MVdW20Xe" });
         isInLine = liff.isInClient();
-        setupEventListeners();
-        console.log("✅ LIFF 初始化成功，isInLine:", isInLine);
-      } catch (err) {
-        // 若初始化失敗，當成非 LINE 瀏覽器處理
-        isInLine = false;
-        setupEventListeners();
-        console.warn("LIFF 初始化失敗，已切換非 LINE 環境", err);
+      } catch (e) {
+        console.warn("LIFF 初始化失敗，切換為 Web 瀏覽器模式");
       }
+      setupEventListeners();
     }
 
-    window.addEventListener('load', () => {
-      // 如果是非 LINE 瀏覽器，直接設定 isInLine = false 並啟動事件監聽
-      if (!window.liff) {
-        isInLine = false;
-        setupEventListeners();
-        return;
-      }
-      initLiff();
-    });
-
     function setupEventListeners() {
-      const textarea = document.getElementById('originalText');
-      textarea.addEventListener('input', () => {
-        if (textarea.value.trim()) debounceAutoRewrite();
+      const textArea = document.getElementById('originalText');
+      textArea.addEventListener('input', () => {
+        if (textArea.value.trim()) debounceAutoRewrite();
         else clearResultAndButtons();
       });
 
       document.getElementById('topicSelect').addEventListener('change', () => {
-        if (document.getElementById('originalText').value.trim()) debounceAutoRewrite();
+        if (textArea.value.trim()) debounceAutoRewrite();
       });
 
       document.getElementById('lengthSelect').addEventListener('change', () => {
-        if (document.getElementById('originalText').value.trim()) debounceAutoRewrite();
+        if (textArea.value.trim()) debounceAutoRewrite();
       });
     }
 
@@ -250,59 +215,36 @@
 
     async function autoRewrite() {
       const originalText = document.getElementById('originalText').value.trim();
-      if (!originalText) {
-        showError("請先輸入文章");
-        return;
-      }
+      const topic = document.getElementById('topicSelect').value;
+      const length = document.getElementById('lengthSelect').value;
+
+      if (!originalText) return showError("請先輸入文章");
       clearError();
       showLoading("改寫中 ...");
-
-      const topic = document.getElementById('topicSelect').value || "";
-      const length = document.getElementById('lengthSelect').value || "short";
-
       disableRewriteBtn(true);
 
       try {
-        // 改用 POST 呼叫，因為文字量較大，GET 有可能失敗
-        const resp = await fetch(API_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            originalText,
-            topic,
-            length
-          }),
+        const res = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ originalText, topic, length })
         });
-
-        if (!resp.ok) {
-          const errText = await resp.text();
-          throw new Error(`HTTP ${resp.status}: ${errText}`);
-        }
-
-        const data = await resp.json();
-
-        if (data.error) {
-          showError("改寫失敗：" + data.error);
-          clearResultAndButtons();
-          return;
-        }
-
-        if (!data.text) {
-          showError("改寫結果為空");
-          clearResultAndButtons();
-          return;
-        }
+        const data = await res.json();
+        if (data.error || !data.text) throw new Error(data.error || "改寫結果為空");
 
         resultText = data.text.trim();
         showResult(resultText);
         showAfterButtons(true);
-
       } catch (err) {
-        showError("改寫過程發生錯誤，請稍後再試。\n" + err.message);
+        showError("❌ 改寫失敗：" + err.message);
         clearResultAndButtons();
       } finally {
         disableRewriteBtn(false);
       }
+    }
+
+    function disableRewriteBtn(flag) {
+      document.getElementById('rewriteBtn').disabled = flag;
     }
 
     function showLoading(msg) {
@@ -314,14 +256,11 @@
     function showResult(text) {
       const div = document.getElementById('rewriteResult');
       div.classList.remove('error');
-      const paragraphs = text.split('\n').filter(p => p.trim() !== '');
-      div.innerHTML = paragraphs.map(p => `<p>${escapeHtml(p)}</p>`).join('');
+      div.innerHTML = text.split('\n').map(p => `<p>${escapeHtml(p)}</p>`).join('');
     }
 
-    function clearResultAndButtons() {
-      document.getElementById('rewriteResult').textContent = '';
-      showAfterButtons(false);
-      resultText = '';
+    function showAfterButtons(flag) {
+      document.getElementById('afterButtons').style.display = flag ? 'flex' : 'none';
     }
 
     function showError(msg) {
@@ -337,62 +276,39 @@
       div.classList.remove('error');
     }
 
-    function disableRewriteBtn(flag) {
-      document.getElementById('rewriteBtn').disabled = flag;
-    }
-
-    function showAfterButtons(flag) {
-      const container = document.getElementById('afterButtons');
-      container.style.display = flag ? 'flex' : 'none';
+    function clearResultAndButtons() {
+      document.getElementById('rewriteResult').textContent = '';
+      showAfterButtons(false);
+      resultText = '';
     }
 
     function copyResult() {
-      if (!resultText) {
-        alert("沒有可複製的內容");
-        return;
-      }
+      if (!resultText) return alert("沒有可複製的內容");
       navigator.clipboard.writeText(resultText).then(() => {
         showBigAlert("複製成功");
-      }).catch(() => {
-        alert("複製失敗，請手動選取後複製");
-      });
+      }).catch(() => alert("複製失敗"));
     }
 
     function shareToLine() {
-      if (!resultText) {
-        alert("請先改寫文章後再分享");
-        return;
-      }
-      if (!isInLine) {
-        alert("非 LINE 環境無法分享，請在 LINE App 開啟本頁");
-        return;
-      }
-      liff.shareTargetPicker([
-        {
-          type: "text",
-          text: resultText,
-        }
-      ]).catch(() => {
-        alert("分享失敗或已取消");
-      });
+      if (!resultText) return alert("請先改寫文章後再分享");
+      if (!isInLine) return alert("請在 LINE App 中開啟以分享");
+      liff.shareTargetPicker([{ type: "text", text: resultText }])
+        .catch(() => alert("分享失敗或已取消"));
     }
 
     async function generateImageAndOpen() {
-      if (!resultText) {
-        alert("請先改寫文章後再轉圖片");
-        return;
-      }
+      if (!resultText) return alert("請先改寫文章後再轉圖片");
       try {
-        const resp = await fetch('https://your-image-api.example.com/generate', {
+        const res = await fetch('https://your-image-api.example.com/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: resultText }),
+          body: JSON.stringify({ text: resultText })
         });
-        if (!resp.ok) throw new Error('圖片產生失敗');
-        const { imageUrl } = await resp.json();
+        const { imageUrl } = await res.json();
+        if (!imageUrl) throw new Error("無法取得圖片連結");
         window.open(imageUrl, '_blank');
       } catch (err) {
-        alert('轉圖片功能暫不可用：' + err.message);
+        alert("圖片產生失敗：" + err.message);
       }
     }
 
@@ -400,23 +316,17 @@
       const alertDiv = document.getElementById('bigAlert');
       alertDiv.textContent = msg;
       alertDiv.style.display = 'block';
-      setTimeout(() => {
-        alertDiv.style.display = 'none';
-      }, 1800);
+      setTimeout(() => alertDiv.style.display = 'none', 1800);
     }
 
-    // 安全顯示 HTML
     function escapeHtml(text) {
-      return text.replace(/[&<>"']/g, function(m) {
-        return ({
-          '&': '&amp;',
-          '<': '&lt;',
-          '>': '&gt;',
-          '"': '&quot;',
-          "'": '&#39;'
-        })[m];
-      });
+      return text.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
     }
+
+    window.addEventListener('load', () => {
+      if (!window.liff) setupEventListeners();
+      else initLiff();
+    });
   </script>
 </body>
 </html>
