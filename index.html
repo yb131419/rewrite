@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>彦彬 ✍️文案改寫</title>
   <style>
     body {
@@ -162,6 +162,7 @@
       display: none;
     }
   </style>
+
 </head>
 <body>
   <div class="container">
@@ -186,198 +187,176 @@
     <div id="afterButtons" class="action-buttons hidden">
       <button id="copyBtn">📋 複製內容</button>
       <button id="shareBtn">📤 分享內容</button>
-      <button id="imageBtn">🖼️ 文案转图片</button>
+      <button id="imageBtn">🖼️ 文案转圖片</button>
     </div>
     <div id="error" class="error"></div>
     <div id="debugInfo" class="debug-info"></div>
     <div id="bigAlert" class="big-alert"></div>
   </div>
 
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script>
-  const API_URL = 'https://script.google.com/macros/s/AKfycbwLC4EfEtyQZ1vejtp4u7cQ3vuRkFf7RDWlIa_je_DkAME0E0HjRvVSBfWpee-jiVIu/exec';
-  let resultText = '';
-  let isInLine = false;
-  let debounceTimer = null;
-  let lastInputValue = '';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbwLC4EfEtyQZ1vejtp4u7cQ3vuRkFf7RDWlIa_je_DkAME0E0HjRvVSBfWpee-jiVIu/exec';
+    let resultText = '';
+    let isInLine = false;
+    let debounceTimer = null;
+    let lastInputValue = '';
 
-  const debugInfo = document.getElementById('debugInfo');
-  const textarea = document.getElementById('originalText');
-  const topicSelect = document.getElementById('topicSelect');
-  const lengthSelect = document.getElementById('lengthSelect');
-  const rewriteBtn = document.getElementById('rewriteBtn');
-  const resultDiv = document.getElementById('result');
-  const afterButtons = document.getElementById('afterButtons');
-  const copyBtn = document.getElementById('copyBtn');
-  const shareBtn = document.getElementById('shareBtn');
-  const imageBtn = document.getElementById('imageBtn');
-  const errorDiv = document.getElementById('error');
-  const bigAlert = document.getElementById('bigAlert');
+    const debugInfo = document.getElementById('debugInfo');
+    const textarea = document.getElementById('originalText');
+    const topicSelect = document.getElementById('topicSelect');
+    const lengthSelect = document.getElementById('lengthSelect');
+    const rewriteBtn = document.getElementById('rewriteBtn');
+    const resultDiv = document.getElementById('result');
+    const afterButtons = document.getElementById('afterButtons');
+    const copyBtn = document.getElementById('copyBtn');
+    const shareBtn = document.getElementById('shareBtn');
+    const imageBtn = document.getElementById('imageBtn');
+    const errorDiv = document.getElementById('error');
+    const bigAlert = document.getElementById('bigAlert');
 
-  function logDebug(msg) {
-    debugInfo.textContent = msg;
-    console.log(msg);
-  }
-
-  async function initLiff() {
-    if (typeof liff === 'undefined') return;
-    try {
-      await liff.init({ liffId: "2007488640-MVdW20Xe" });
-      isInLine = liff.isInClient();
-    } catch (e) {
-      logDebug("LIFF 初始化失敗: " + e.message);
-    }
-  }
-
-  function debounceAutoRewrite() {
-    clearTimeout(debounceTimer);
-    if (!textarea.value || textarea.value === lastInputValue) return;
-    debounceTimer = setTimeout(() => {
-      rewriteText();
-    }, 500);
-  }
-
-  function showAlert(message) {
-    bigAlert.textContent = message;
-    bigAlert.style.display = 'block';
-    setTimeout(() => bigAlert.style.display = 'none', 1600);
-  }
-
-  function rewriteText() {
-    const text = textarea.value.trim();
-    const topic = topicSelect.value;
-    const length = lengthSelect.value;
-    const userId = isInLine ? liff.getUserId() : 'web_user';
-
-    if (!text) {
-      errorDiv.textContent = '請輸入要改寫的文章';
-      errorDiv.style.display = 'block';
-      resultDiv.style.display = 'none';
-      afterButtons.style.display = 'none';
-      return;
+    function logDebug(msg) {
+      debugInfo.textContent = msg;
+      console.log(msg);
     }
 
-    rewriteBtn.disabled = true;
-    errorDiv.style.display = 'none';
-    resultDiv.style.display = 'none';
-    afterButtons.style.display = 'none';
+    async function initLiff() {
+      if (typeof liff === 'undefined') return;
+      try {
+        await liff.init({ liffId: "2007488640-MVdW20Xe" });
+        isInLine = liff.isInClient();
+        logDebug(`LIFF 初始化完成 - inLine: ${isInLine}`);
+      } catch (e) {
+        logDebug("LIFF 初始化失敗: " + e.message);
+      }
+    }
 
-    const data = {
-      text,
-      topic,
-      length,
-      userId,
-      debug: false
-    };
+    function showAlert(message) {
+      bigAlert.textContent = message;
+      bigAlert.style.display = 'block';
+      setTimeout(() => bigAlert.style.display = 'none', 1600);
+    }
 
-    fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    })
-    .then(res => {
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-      return res.json();
-    })
-    .then(data => {
-      if (data.success) {
-        resultText = data.result;
-        resultDiv.textContent = resultText;
-        resultDiv.style.display = 'block';
-        afterButtons.style.display = 'flex';
-        showAlert('改寫成功 ✨');
-        textarea.value = '';
-        lastInputValue = '';
-      } else {
-        errorDiv.textContent = data.error || '改寫失敗，請再試一次';
+    function triggerRewrite() {
+      const text = textarea.value.trim();
+      const topic = topicSelect.value;
+      const length = lengthSelect.value;
+      const userId = isInLine && liff.getContext ? liff.getContext().userId : 'web_user';
+
+      if (!text) {
+        errorDiv.textContent = '請輸入要改寫的文章';
         errorDiv.style.display = 'block';
-      }
-    })
-    .catch(err => {
-      errorDiv.textContent = '網路錯誤，請再試一次';
-      errorDiv.style.display = 'block';
-      logDebug(err.message);
-    })
-    .finally(() => {
-      rewriteBtn.disabled = false;
-    });
-  }
-
-  function setupEventListeners() {
-    textarea.addEventListener('input', () => {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        errorDiv.style.display = 'none';
         resultDiv.style.display = 'none';
-        afterButtons.style.display = 'none';
-        resultText = '';
-        lastInputValue = textarea.value;
-      }, 300);
-    });
-
-    topicSelect.addEventListener('change', () => {
-      if (textarea.value && textarea.value !== lastInputValue) {
-        debounceAutoRewrite();
-      }
-    });
-
-    lengthSelect.addEventListener('change', () => {
-      if (textarea.value && textarea.value !== lastInputValue) {
-        debounceAutoRewrite();
-      }
-    });
-
-    rewriteBtn.addEventListener('click', debounceAutoRewrite);
-
-    copyBtn.addEventListener('click', () => {
-      if (!resultText) {
-        alert('請先改寫文章再複製');
+        afterButtons.classList.add('hidden');
         return;
       }
-      navigator.clipboard.writeText(resultText)
-        .then(() => showAlert('複製成功 ✔️'))
-        .catch(() => alert('複製失敗，請手動選取內容複製'));
-    });
 
-    shareBtn.addEventListener('click', () => {
-      if (!resultText) {
-        alert('請先改寫文章再分享');
-        return;
-      }
-      if (!isInLine) {
-        alert('請在 LINE App 中開啟以使用分享功能');
-        return;
-      }
-      liff.shareTargetPicker([{ type: "text", text: resultText }])
-        .catch(e => {
-          logDebug("分享失敗: " + e.message);
-          alert('分享失敗，請再試一次');
-        });
-    });
+      rewriteBtn.disabled = true;
+      errorDiv.style.display = 'none';
+      resultDiv.style.display = 'none';
+      afterButtons.classList.add('hidden');
 
-    imageBtn.addEventListener('click', () => {
-      if (!resultText) {
-        alert('請先改寫文章再轉圖片');
-        return;
-      }
-      fetch('https://your-image-api.example.com/generate', {
+      const data = {
+        text,
+        topic,
+        length,
+        userId,
+        debug: false
+      };
+
+      fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: resultText })
+        body: JSON.stringify(data)
       })
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        return res.json();
+      })
       .then(data => {
-        if (data.imageUrl) window.open(data.imageUrl, '_blank');
+        if (data.success) {
+          resultText = data.result;
+          resultDiv.textContent = resultText;
+          resultDiv.style.display = 'block';
+          afterButtons.classList.remove('hidden');
+          showAlert('改寫成功 ✨');
+          textarea.value = '';
+          lastInputValue = '';
+        } else {
+          errorDiv.textContent = data.error || '改寫失敗，請再試一次';
+          errorDiv.style.display = 'block';
+        }
       })
-      .catch(() => alert('轉圖片失敗，請再試一次'));
-    });
-  }
+      .catch(err => {
+        errorDiv.textContent = '網路錯誤，請再試一次';
+        errorDiv.style.display = 'block';
+        logDebug(err.message);
+      })
+      .finally(() => {
+        rewriteBtn.disabled = false;
+      });
+    }
 
-  window.onload = async () => {
-    await initLiff();
-    setupEventListeners();
-  };
-</script>
+    function debounceAutoRewrite() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        if (textarea.value.trim() && textarea.value !== lastInputValue) {
+          lastInputValue = textarea.value;
+          triggerRewrite();
+        }
+      }, 400);
+    }
 
+    function setupEventListeners() {
+      textarea.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        resultDiv.style.display = 'none';
+        afterButtons.classList.add('hidden');
+        errorDiv.style.display = 'none';
+        resultText = '';
+        debounceAutoRewrite();
+      });
 
+      topicSelect.addEventListener('change', debounceAutoRewrite);
+      lengthSelect.addEventListener('change', debounceAutoRewrite);
+      rewriteBtn.addEventListener('click', triggerRewrite);
+
+      copyBtn.addEventListener('click', () => {
+        if (!resultText) return alert('請先改寫文章再複製');
+        navigator.clipboard.writeText(resultText)
+          .then(() => showAlert('複製成功 ✔️'))
+          .catch(() => alert('複製失敗，請手動選取內容複製'));
+      });
+
+      shareBtn.addEventListener('click', () => {
+        if (!resultText) return alert('請先改寫文章再分享');
+        if (!isInLine) return alert('請在 LINE App 中開啟以使用分享功能');
+        liff.shareTargetPicker([{ type: "text", text: resultText }])
+          .catch(e => {
+            logDebug("分享失敗: " + e.message);
+            alert('分享失敗，請再試一次');
+          });
+      });
+
+      imageBtn.addEventListener('click', () => {
+        if (!resultText) return alert('請先改寫文章再轉圖片');
+        fetch('https://your-image-api.example.com/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: resultText })
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.imageUrl) window.open(data.imageUrl, '_blank');
+        })
+        .catch(() => alert('轉圖片失敗，請再試一次'));
+      });
+    }
+
+    window.onload = async () => {
+      await initLiff();
+      setupEventListeners();
+    };
+  </script>
 </body>
 </html>
