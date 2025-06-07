@@ -1,132 +1,74 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>文章改寫工具 (純網頁版)</title>
-  <style>
-    body { max-width: 700px; margin: 2rem auto; font-family: "Noto Sans TC", sans-serif; line-height: 1.6; }
-    textarea { width: 100%; height: 120px; font-size: 1rem; padding: 0.5rem; margin-bottom: 1rem; }
-    select, button { font-size: 1rem; padding: 0.5rem 1rem; margin-bottom: 1rem; }
-    .result { border: 1px solid #ccc; padding: 1rem; margin-top: 1rem; background: #f9f9f9; white-space: pre-wrap; }
-    .error { color: red; }
-    label { font-weight: bold; }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>文章改寫測試頁</title>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: auto; }
+  textarea { width: 100%; height: 120px; }
+  input, button { font-size: 1rem; padding: 8px; margin: 6px 0; width: 100%; }
+  pre { background: #f3f3f3; padding: 10px; white-space: pre-wrap; word-break: break-word; }
+</style>
 </head>
 <body>
-  <h1>文章改寫工具 (純網頁版)</h1>
 
-  <label for="userId">使用者ID（可自訂）：</label><br/>
-  <input id="userId" type="text" placeholder="輸入使用者ID (可空白)" style="width:100%; margin-bottom:1rem;"/>
+<h2>文章改寫測試</h2>
 
-  <label for="topic">文章分類（選填）：</label><br/>
-  <select id="topic">
-    <option value="">自動分類</option>
-    <option value="財富">財富</option>
-    <option value="健康">健康</option>
-    <option value="生活">生活</option>
-    <option value="科技">科技</option>
-  </select>
+<label>使用者ID（任意字串）：
+  <input type="text" id="userId" placeholder="user123" />
+</label>
 
-  <label for="inputText">貼上文章內容：</label><br/>
-  <textarea id="inputText" placeholder="請貼上你想改寫的文章內容"></textarea>
+<label>文章內容：
+  <textarea id="text" placeholder="貼上文章內容"></textarea>
+</label>
 
-  <button id="rewriteBtn">開始改寫</button>
-  <button id="resetBtn" style="margin-left:10px;">清除</button>
+<label>分類（選填）：
+  <input type="text" id="topic" placeholder="財富 / 健康 / 其他" />
+</label>
 
-  <div id="message" class="error"></div>
+<button id="rewriteBtn">送出改寫請求</button>
 
-  <div id="resultArea" style="display:none;">
-    <h2>改寫結果</h2>
-    <div><strong>推薦標題：</strong> <span id="resultTitle"></span></div>
-    <div><strong>分類：</strong> <span id="resultCategory"></span></div>
-    <div><strong>短故事改寫：</strong></div>
-    <div class="result" id="resultShort"></div>
-    <div><strong>長故事改寫：</strong></div>
-    <div class="result" id="resultLong"></div>
-    <button id="copyShortBtn">複製短故事</button>
-    <button id="copyLongBtn">複製長故事</button>
-  </div>
+<h3>改寫結果：</h3>
+<pre id="result">尚未送出</pre>
 
 <script>
-  const API_URL = "https://script.google.com/macros/s/AKfycbwRYOIicltP81EO6fQB81bCRfoEczp29qqqSbz5HjdzbsZmRrccQgxR6QmikAWuuNGl/exec"; // 改成你的 GAS 部署 URL
+const API_URL = "https://script.google.com/macros/s/你的部署ID/exec";
 
-  const inputText = document.getElementById("inputText");
-  const rewriteBtn = document.getElementById("rewriteBtn");
-  const resetBtn = document.getElementById("resetBtn");
-  const message = document.getElementById("message");
-  const resultArea = document.getElementById("resultArea");
-  const resultTitle = document.getElementById("resultTitle");
-  const resultCategory = document.getElementById("resultCategory");
-  const resultShort = document.getElementById("resultShort");
-  const resultLong = document.getElementById("resultLong");
-  const userIdInput = document.getElementById("userId");
-  const topicSelect = document.getElementById("topic");
-  const copyShortBtn = document.getElementById("copyShortBtn");
-  const copyLongBtn = document.getElementById("copyLongBtn");
+document.getElementById("rewriteBtn").addEventListener("click", () => {
+  const userId = document.getElementById("userId").value.trim();
+  const text = document.getElementById("text").value.trim();
+  const topic = document.getElementById("topic").value.trim();
 
-  rewriteBtn.addEventListener("click", async () => {
-    message.textContent = "";
-    resultArea.style.display = "none";
+  if (!text) {
+    alert("文章內容不可為空");
+    return;
+  }
 
-    const text = inputText.value.trim();
-    if (!text) {
-      message.textContent = "文章內容不可為空";
-      return;
+  document.getElementById("result").textContent = "改寫中...";
+
+  fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, text, topic }),
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      document.getElementById("result").textContent = 
+        `分類: ${data.result.category || "無"}\n` +
+        `推薦標題: ${data.result.title || "無"}\n\n` +
+        `短故事改寫:\n${data.result.short_rewrite || "無內容"}\n\n` +
+        `長故事改寫:\n${data.result.long_rewrite || "無內容"}`;
+    } else {
+      document.getElementById("result").textContent = "錯誤：" + (data.error || "未知錯誤");
     }
-
-    rewriteBtn.disabled = true;
-    rewriteBtn.textContent = "改寫中...";
-
-    const userId = userIdInput.value.trim() || "anonymous";
-    const topic = topicSelect.value;
-
-    try {
-      const resp = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, text, topic })
-      });
-
-      const data = await resp.json();
-
-      if (!data.success) {
-        message.textContent = data.error || "改寫失敗";
-      } else {
-        const r = data.result;
-        resultTitle.textContent = r.title || "無標題";
-        resultCategory.textContent = r.category || "無分類";
-        resultShort.textContent = r.short_rewrite || "";
-        resultLong.textContent = r.long_rewrite || "";
-        resultArea.style.display = "block";
-      }
-    } catch (e) {
-      message.textContent = "系統錯誤：" + e.message;
-    }
-
-    rewriteBtn.disabled = false;
-    rewriteBtn.textContent = "開始改寫";
+  })
+  .catch(err => {
+    document.getElementById("result").textContent = "Fetch 失敗: " + err.message;
   });
-
-  resetBtn.addEventListener("click", () => {
-    inputText.value = "";
-    message.textContent = "";
-    resultArea.style.display = "none";
-  });
-
-  copyShortBtn.addEventListener("click", () => {
-    if (resultShort.textContent) {
-      navigator.clipboard.writeText(resultShort.textContent);
-      alert("短故事內容已複製！");
-    }
-  });
-
-  copyLongBtn.addEventListener("click", () => {
-    if (resultLong.textContent) {
-      navigator.clipboard.writeText(resultLong.textContent);
-      alert("長故事內容已複製！");
-    }
-  });
+});
 </script>
+
 </body>
 </html>
