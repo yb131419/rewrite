@@ -15,7 +15,6 @@
       display: flex;
       justify-content: center;
       min-height: 100vh;
-      font-family: 'Noto Sans TC', sans-serif;
     }
     .container {
       background: #1e1e1e;
@@ -158,15 +157,11 @@
       text-align: center;
       transition: opacity 0.3s;
     }
-    .hidden {
-      display: none;
-    }
   </style>
-
 </head>
 <body>
   <div class="container">
-    <h2>彦彬 ✍️文案改寫 LIFF 網頁版</h2>
+    <h2>彦彬 ✍️文案改寫 GitHub Pages 版</h2>
     <textarea id="originalText" placeholder="請輸入要改寫的文章..."></textarea>
     <label for="topicSelect">選擇主題分類（可自動判斷）：</label>
     <select id="topicSelect">
@@ -184,21 +179,19 @@
     </select>
     <button id="rewriteBtn" type="button">🚀 自動改寫</button>
     <div id="result" class="result"></div>
-    <div id="afterButtons" class="action-buttons hidden">
+    <div id="afterButtons" class="action-buttons" style="display:none;">
       <button id="copyBtn">📋 複製內容</button>
-      <button id="shareBtn">📤 分享內容</button>
-      <button id="imageBtn">🖼️ 文案转圖片</button>
+      <button id="shareBtn">📤 分享內容（僅支援 Web Share）</button>
+      <button id="imageBtn">🖼️ 文案轉圖片（示意）</button>
     </div>
     <div id="error" class="error"></div>
     <div id="debugInfo" class="debug-info"></div>
     <div id="bigAlert" class="big-alert"></div>
   </div>
 
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script>
     const API_URL = 'https://script.google.com/macros/s/AKfycbwRYOIicltP81EO6fQB81bCRfoEczp29qqqSbz5HjdzbsZmRrccQgxR6QmikAWuuNGl/exec';
     let resultText = '';
-    let isInLine = false;
     let debounceTimer = null;
     let lastInputValue = '';
 
@@ -220,17 +213,6 @@
       console.log(msg);
     }
 
-    async function initLiff() {
-      if (typeof liff === 'undefined') return;
-      try {
-        await liff.init({ liffId: "2007488640-MVdW20Xe" });
-        isInLine = liff.isInClient();
-        logDebug(`LIFF 初始化完成 - inLine: ${isInLine}`);
-      } catch (e) {
-        logDebug("LIFF 初始化失敗: " + e.message);
-      }
-    }
-
     function showAlert(message) {
       bigAlert.textContent = message;
       bigAlert.style.display = 'block';
@@ -241,20 +223,20 @@
       const text = textarea.value.trim();
       const topic = topicSelect.value;
       const length = lengthSelect.value;
-      const userId = isInLine && liff.getContext ? liff.getContext().userId : 'web_user';
+      const userId = 'web_user';  // GitHub Pages 版固定使用
 
       if (!text) {
         errorDiv.textContent = '請輸入要改寫的文章';
         errorDiv.style.display = 'block';
         resultDiv.style.display = 'none';
-        afterButtons.classList.add('hidden');
+        afterButtons.style.display = 'none';
         return;
       }
 
       rewriteBtn.disabled = true;
       errorDiv.style.display = 'none';
       resultDiv.style.display = 'none';
-      afterButtons.classList.add('hidden');
+      afterButtons.style.display = 'none';
 
       const data = {
         text,
@@ -278,7 +260,7 @@
           resultText = data.result;
           resultDiv.textContent = resultText;
           resultDiv.style.display = 'block';
-          afterButtons.classList.remove('hidden');
+          afterButtons.style.display = 'flex';
           showAlert('改寫成功 ✨');
           textarea.value = '';
           lastInputValue = '';
@@ -304,14 +286,14 @@
           lastInputValue = textarea.value;
           triggerRewrite();
         }
-      }, 400);
+      }, 600);
     }
 
     function setupEventListeners() {
       textarea.addEventListener('input', () => {
         clearTimeout(debounceTimer);
         resultDiv.style.display = 'none';
-        afterButtons.classList.add('hidden');
+        afterButtons.style.display = 'none';
         errorDiv.style.display = 'none';
         resultText = '';
         debounceAutoRewrite();
@@ -330,33 +312,31 @@
 
       shareBtn.addEventListener('click', () => {
         if (!resultText) return alert('請先改寫文章再分享');
-        if (!isInLine) return alert('請在 LINE App 中開啟以使用分享功能');
-        liff.shareTargetPicker([{ type: "text", text: resultText }])
-          .catch(e => {
-            logDebug("分享失敗: " + e.message);
-            alert('分享失敗，請再試一次');
-          });
+        if (navigator.share) {
+          navigator.share({
+            title: '文案改寫分享',
+            text: resultText,
+          }).catch(() => alert('分享失敗'));
+        } else {
+          alert('此瀏覽器不支援 Web Share 功能');
+        }
       });
 
       imageBtn.addEventListener('click', () => {
         if (!resultText) return alert('請先改寫文章再轉圖片');
-        fetch('https://your-image-api.example.com/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: resultText })
-        })
-        .then(res => res.json())
-        .then(data => {
-          if (data.imageUrl) window.open(data.imageUrl, '_blank');
-        })
-        .catch(() => alert('轉圖片失敗，請再試一次'));
+        // 這裡示意使用第三方文案轉圖片 API，請自行替換成你的服務
+        const encoded = encodeURIComponent(resultText);
+        // 假設API網址 (你要換成自己的)
+        const imageApiUrl = `https://your-image-api.example.com/generate?text=${encoded}`;
+        window.open(imageApiUrl, '_blank');
       });
     }
 
-    window.onload = async () => {
-      await initLiff();
+    // 頁面載入時初始化
+    window.addEventListener('DOMContentLoaded', () => {
       setupEventListeners();
-    };
+      logDebug('頁面載入完成，GitHub Pages 版啟動');
+    });
   </script>
 </body>
 </html>
