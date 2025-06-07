@@ -115,15 +115,20 @@
   <script>
     let isInLine = false;
 
-    document.addEventListener("DOMContentLoaded", () => {
-      liff.init()
-        .then(() => {
-          isInLine = liff.isInClient();
-        })
-        .catch(err => {
-          console.warn("不是 LINE App 環境，改用原生分享", err);
-        });
-    });
+document.addEventListener("DOMContentLoaded", () => {
+  if (liff && typeof liff.init === 'function') {
+    liff.init({ liffId: '2007488640-MVdW20Xe' })
+      .then(() => {
+        isInLine = liff.isInClient();
+      })
+      .catch(err => {
+        console.warn("不是 LINE App 環境，改用原生分享", err);
+      });
+  } else {
+    console.warn("非 LIFF 環境，跳過 liff.init");
+  }
+});
+
 
     function formatContentWithParagraphs(content) {
       let paragraphs = [];
