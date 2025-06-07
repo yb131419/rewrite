@@ -26,7 +26,7 @@
     }
     h2 {
       margin-bottom: 16px;
-      color: #ffffff;
+      color: #fff;
       font-weight: 700;
       font-size: 20px;
     }
@@ -55,7 +55,7 @@
       display: block;
       font-weight: 600;
       font-size: 14px;
-      color: #cccccc;
+      color: #ccc;
     }
     button {
       margin-top: 20px;
@@ -87,7 +87,6 @@
       font-size: 14.5px;
       max-height: 400px;
       overflow-y: auto;
-      position: relative;
       white-space: pre-wrap;
     }
     .error {
@@ -136,12 +135,6 @@
       text-align: center;
       pointer-events: none;
     }
-    #debugInfo {
-      margin-top: 10px;
-      font-size: 12px;
-      color: #aaa;
-      font-family: monospace;
-    }
   </style>
 </head>
 <body>
@@ -169,7 +162,6 @@
       <button onclick="shareToLine()">📤 分享內容</button>
       <button onclick="generateImageAndOpen()">🖼️ 文案轉圖片</button>
     </div>
-    <div id="debugInfo"></div>
   </div>
   <div id="bigAlert"></div>
   <script src="https://static.line-scdn.net/liff/edge/2.1/sdk.min.js"></script>
@@ -178,25 +170,19 @@
     let resultText = '';
     let isInLine = false;
     let debounceTimer = null;
-    let debugInfo = document.getElementById('debugInfo');
-    
+
     async function initLiff() {
       try {
         await liff.init({ liffId: "2007488640-MVdW20Xe" });
         isInLine = liff.isInClient();
-        logDebug("LIFF初始化成功");
+        console.log("LIFF初始化成功");
       } catch (e) {
-        logDebug("LIFF初始化失敗，切換為Web瀏覽器模式: " + e.message);
+        console.warn("LIFF初始化失敗，切換為Web瀏覽器模式:", e.message);
         isInLine = false;
       }
       setupEventListeners();
     }
-    
-    function logDebug(message) {
-      debugInfo.textContent = message;
-      console.log(message);
-    }
-    
+
     function setupEventListeners() {
       const textArea = document.getElementById('originalText');
       textArea.addEventListener('input', () => {
@@ -211,87 +197,72 @@
         if (textArea.value.trim()) debounceAutoRewrite();
       });
     }
-    
+
     function debounceAutoRewrite() {
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         autoRewrite();
       }, 1200);
     }
-    
+
     async function autoRewrite() {
-      const originalText = document.getElementById('originalText').value.trim();
+      const text = document.getElementById('originalText').value.trim();
       const topic = document.getElementById('topicSelect').value;
       const length = document.getElementById('lengthSelect').value;
-      
-      if (!originalText) {
+
+      if (!text) {
         showError("請先輸入文章");
         return;
       }
-      
+
       clearError();
       showLoading("改寫中 ...");
       disableRewriteBtn(true);
-      
+
       try {
-        logDebug("正在發送請求到: " + API_URL);
-        logDebug("請求數據: " + JSON.stringify({ originalText, topic, length }));
-        
+        console.log("發送改寫請求...", { text, topic, length });
         const res = await fetch(API_URL, {
           method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
+          headers: { 'Content-Type': 'application/json' },
           mode: 'cors',
-          credentials: 'omit',
-          body: JSON.stringify({ originalText, topic, length })
+          body: JSON.stringify({ text, topic, length })
         });
-        
-        logDebug("響應狀態碼: " + res.status);
-        
-        const text = await res.text();
-        logDebug("原始響應文本: " + text);
-        
-        try {
-          const data = JSON.parse(text);
-          if (data.error || !data.text) throw new Error(data.error || "改寫結果為空");
-          resultText = data.text.trim();
-          showResult(resultText);
-          showAfterButtons(true);
-        } catch (parseErr) {
-          throw new Error("解析響應失敗: " + parseErr.message + "\n原始響應: " + text);
-        }
+        if (!res.ok) throw new Error(`HTTP錯誤 ${res.status}`);
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || "改寫失敗");
+        if (!data.text) throw new Error("改寫結果為空");
+        resultText = data.text.trim();
+        showResult(resultText);
+        showAfterButtons(true);
       } catch (err) {
-        logDebug("錯誤: " + err.message);
         showError("❌ 改寫失敗：" + err.message);
         clearResultAndButtons();
+        console.error(err);
       } finally {
         disableRewriteBtn(false);
       }
     }
-    
-    function disableRewriteBtn(flag) {
-      document.getElementById('rewriteBtn').disabled = flag;
+
+    function disableRewriteBtn(disabled) {
+      document.getElementById('rewriteBtn').disabled = disabled;
     }
-    
+
     function showLoading(msg) {
       const div = document.getElementById('rewriteResult');
       div.textContent = msg;
       div.classList.remove('error');
     }
-    
+
     function showResult(text) {
       const div = document.getElementById('rewriteResult');
       div.classList.remove('error');
-      // 安全轉義並用<p>包裝換行
-      div.innerHTML = text.split('\n').map(p => `<p>${escapeHtml(p)}</p>`).join('');
+      div.innerHTML = text.split('\n').map(line => `<p>${escapeHtml(line)}</p>`).join('');
     }
-    
-    function showAfterButtons(flag) {
-      document.getElementById('afterButtons').style.display = flag ? 'flex' : 'none';
+
+    function showAfterButtons(show) {
+      document.getElementById('afterButtons').style.display = show ? 'flex' : 'none';
     }
-    
+
     function showError(msg) {
       const div = document.getElementById('rewriteResult');
       div.textContent = msg;
@@ -299,34 +270,34 @@
       showAfterButtons(false);
       resultText = '';
     }
-    
+
     function clearError() {
       const div = document.getElementById('rewriteResult');
       div.classList.remove('error');
       div.textContent = '';
     }
-    
+
     function clearResultAndButtons() {
       const div = document.getElementById('rewriteResult');
       div.textContent = '';
       showAfterButtons(false);
       resultText = '';
     }
-    
+
     function copyResult() {
       if (!resultText) return alert("沒有可複製的內容");
       navigator.clipboard.writeText(resultText).then(() => {
         showBigAlert("複製成功");
       }).catch(() => alert("複製失敗"));
     }
-    
+
     function shareToLine() {
       if (!resultText) return alert("請先改寫文章後再分享");
       if (!isInLine) return alert("請在 LINE App 中開啟以分享");
       liff.shareTargetPicker([{ type: "text", text: resultText }])
         .catch(() => alert("分享失敗或已取消"));
     }
-    
+
     async function generateImageAndOpen() {
       if (!resultText) return alert("請先改寫文章後再轉圖片");
       try {
@@ -335,44 +306,31 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           mode: 'cors',
-          credentials: 'omit',
           body: JSON.stringify({ text: resultText })
         });
-        
         const json = await res.json();
-        const imageUrl = json.imageUrl || json.url; // 常見的欄位名稱
+        const imageUrl = json.imageUrl || json.url;
         if (!imageUrl) throw new Error("無法取得圖片連結");
         window.open(imageUrl, '_blank');
       } catch (err) {
         alert("圖片產生失敗：" + err.message);
       }
     }
-    
+
     function showBigAlert(msg) {
       const alertDiv = document.getElementById('bigAlert');
       alertDiv.textContent = msg;
       alertDiv.style.display = 'block';
-      setTimeout(() => alertDiv.style.display = 'none', 1800);
+      setTimeout(() => { alertDiv.style.display = 'none'; }, 1800);
     }
-    
+
+    // 簡單轉義 HTML，避免注入問題
     function escapeHtml(text) {
-      return text.replace(/[&<>"']/g, m => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;'
-      }[m]));
+      const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+      return text.replace(/[&<>"']/g, m => map[m]);
     }
-    
-    window.addEventListener('load', () => {
-      if (window.liff) {
-        initLiff();
-      } else {
-        isInLine = false;
-        setupEventListeners();
-      }
-    });
+
+    window.onload = initLiff;
   </script>
 </body>
 </html>
