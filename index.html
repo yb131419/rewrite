@@ -3,97 +3,386 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>文章改寫工具</title>
+  <title>彥彬 ✍️文案改寫</title>
   <style>
-    body { font-family: "Noto Sans TC", sans-serif; max-width: 600px; margin: 2rem auto; padding: 1rem; }
-    textarea { width: 100%; height: 150px; font-size: 1rem; padding: 0.5rem; }
-    select, button { padding: 0.5rem 1rem; margin-top: 1rem; font-size: 1rem; }
-    .result { margin-top: 2rem; background: #f0f0f0; padding: 1rem; border-radius: 6px; }
-    .error { color: red; font-weight: bold; }
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+    body {
+      font-family: 'Roboto', sans-serif;
+      background: #121212;
+      padding: 16px;
+      margin: 0;
+      color: #f0f0f0;
+      display: flex;
+      justify-content: center;
+    }
+    .card {
+      background: #1e1e1e;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      width: 100%;
+      max-width: 480px;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    h2 {
+      margin-bottom: 16px;
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 20px;
+    }
+    textarea, select {
+      width: 100%;
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: #2a2a2a;
+      border: 1px solid #3f3f3f;
+      color: #f0f0f0;
+      font-size: 15px;
+      line-height: 1.6;
+      box-sizing: border-box;
+    }
+    textarea:focus, select:focus {
+      outline: none;
+      border-color: #4dabf7;
+    }
+    textarea {
+      height: 120px;
+      resize: vertical;
+    }
+    label {
+      margin-top: 20px;
+      display: block;
+      font-weight: 600;
+      font-size: 14px;
+      color: #cccccc;
+    }
+    button {
+      margin-top: 20px;
+      background: linear-gradient(135deg, #4dabf7, #2d9cdb);
+      border: none;
+      color: white;
+      font-weight: bold;
+      font-size: 16px;
+      padding: 13px 0;
+      width: 100%;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    button:hover:not(:disabled) {
+      background: linear-gradient(135deg, #339af0, #228be6);
+    }
+    #rewriteResult {
+      margin-top: 24px;
+      background: #232323;
+      padding: 16px;
+      border-radius: 10px;
+      border: 1px solid #373737;
+      color: #e0e0e0;
+      font-size: 14.5px;
+      max-height: 400px;
+      overflow-y: auto;
+      position: relative;
+      white-space: pre-wrap;
+    }
+    .error {
+      background: #3c1e1e;
+      border: 1px solid #d93025;
+      padding: 14px;
+      color: #ff6b6b;
+      font-weight: bold;
+      border-radius: 10px;
+      margin-top: 16px;
+      font-size: 14px;
+    }
+    .action-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .action-buttons button {
+      flex: 1;
+      background: #333;
+      border: 1px solid #555;
+      font-size: 14px;
+      padding: 10px;
+      color: #f0f0f0;
+      cursor: pointer;
+    }
+    .action-buttons button:hover {
+      background: #444;
+    }
+    #bigAlert {
+      position: fixed;
+      top: 30%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(50, 50, 50, 0.9);
+      color: #4CAF50;
+      font-size: 40px;
+      font-weight: 700;
+      padding: 20px 40px;
+      border-radius: 20px;
+      box-shadow: 0 0 15px #4CAF50;
+      z-index: 9999;
+      display: none;
+      user-select: none;
+      text-align: center;
+      pointer-events: none;
+    }
+    #debugInfo {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #aaa;
+      font-family: monospace;
+    }
   </style>
 </head>
 <body>
-  <h1>文章改寫工具</h1>
-
-  <label for="topic">文章分類（選填）:</label>
-  <select id="topic">
-    <option value="">自動分類</option>
-    <option value="財富">財富</option>
-    <option value="健康">健康</option>
-    <option value="其他">其他</option>
-  </select>
-
-  <textarea id="inputText" placeholder="貼上你要改寫的文章內容..."></textarea>
-
-  <button id="rewriteBtn">開始改寫</button>
-
-  <div id="status"></div>
-
-  <div class="result" id="result" style="display:none;">
-    <h2>改寫結果</h2>
-    <h3>推薦標題</h3>
-    <p id="title"></p>
-    <h3>分類</h3>
-    <p id="category"></p>
-    <h3>短故事改寫</h3>
-    <p id="shortRewrite"></p>
-    <h3>長故事改寫</h3>
-    <p id="longRewrite"></p>
+  <div class="card">
+    <h2>📘 彥彬文案改寫、貼上文章自動改寫</h2>
+    <textarea id="originalText" placeholder="請貼上原始文章..."></textarea>
+    <label for="topicSelect">選擇分類主題（可AI自動判斷）：</label>
+    <select id="topicSelect">
+      <option value="">AI 自動判斷</option>
+      <option value="人生成長">人生成長</option>
+      <option value="情感故事">情感故事</option>
+      <option value="健康養生">健康養生</option>
+      <option value="財富商機">財富商機</option>
+    </select>
+    <label for="lengthSelect">選擇改寫長度：</label>
+    <select id="lengthSelect">
+      <option value="short" selected>短故事（約95～115字）</option>
+      <option value="long">長故事（約165～180字）</option>
+    </select>
+    <button id="rewriteBtn" onclick="autoRewrite()">🚀 自動改寫</button>
+    <div id="rewriteResult"></div>
+    <div class="action-buttons" style="display:none;" id="afterButtons">
+      <button onclick="copyResult()">📋 複製內容</button>
+      <button onclick="shareToLine()">📤 分享內容</button>
+      <button onclick="generateImageAndOpen()">🖼️ 文案轉圖片</button>
+    </div>
+    <div id="debugInfo"></div>
   </div>
-
+  <div id="bigAlert"></div>
+  <script src="https://static.line-scdn.net/liff/edge/2.1/sdk.min.js"></script>
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbwRYOIicltP81EO6fQB81bCRfoEczp29qqqSbz5HjdzbsZmRrccQgxR6QmikAWuuNGl/exec";
-
-    const rewriteBtn = document.getElementById("rewriteBtn");
-    const inputText = document.getElementById("inputText");
-    const topicSelect = document.getElementById("topic");
-    const statusDiv = document.getElementById("status");
-    const resultDiv = document.getElementById("result");
-    const titleEl = document.getElementById("title");
-    const categoryEl = document.getElementById("category");
-    const shortRewriteEl = document.getElementById("shortRewrite");
-    const longRewriteEl = document.getElementById("longRewrite");
-
-    rewriteBtn.addEventListener("click", async () => {
-      const text = inputText.value.trim();
-      const topic = topicSelect.value;
-
-      resultDiv.style.display = "none";
-      statusDiv.textContent = "";
-      if (!text) {
-        statusDiv.innerHTML = '<span class="error">請輸入文章內容</span>';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbwRYOIicltP81EO6fQB81bCRfoEczp29qqqSbz5HjdzbsZmRrccQgxR6QmikAWuuNGl/exec';
+    let resultText = '';
+    let isInLine = false;
+    let debounceTimer = null;
+    let debugInfo = document.getElementById('debugInfo');
+    
+    async function initLiff() {
+      try {
+        await liff.init({ liffId: "2007488640-MVdW20Xe" });
+        isInLine = liff.isInClient();
+        logDebug("LIFF初始化成功");
+      } catch (e) {
+        logDebug("LIFF初始化失敗，切換為Web瀏覽器模式: " + e.message);
+        isInLine = false;
+      }
+      setupEventListeners();
+    }
+    
+    function logDebug(message) {
+      debugInfo.textContent = message;
+      console.log(message);
+    }
+    
+    function setupEventListeners() {
+      const textArea = document.getElementById('originalText');
+      textArea.addEventListener('input', () => {
+        clearError();
+        clearResultAndButtons();
+        if (textArea.value.trim()) debounceAutoRewrite();
+      });
+      document.getElementById('topicSelect').addEventListener('change', () => {
+        if (textArea.value.trim()) debounceAutoRewrite();
+      });
+      document.getElementById('lengthSelect').addEventListener('change', () => {
+        if (textArea.value.trim()) debounceAutoRewrite();
+      });
+    }
+    
+    function debounceAutoRewrite() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        autoRewrite();
+      }, 1200);
+    }
+    
+    async function autoRewrite() {
+      const originalText = document.getElementById('originalText').value.trim();
+      const topic = document.getElementById('topicSelect').value;
+      const length = document.getElementById('lengthSelect').value;
+      
+      if (!originalText) {
+        showError("請先輸入文章");
         return;
       }
-
-      statusDiv.textContent = "改寫中，請稍候...";
-      rewriteBtn.disabled = true;
+      
+      clearError();
+      showLoading("改寫中 ...");
+      disableRewriteBtn(true);
 
       try {
-        const res = await fetch(API_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text, topic, userId: "guest" }) // 你可換成真實 userId
+        // URL 編碼參數
+        const params = new URLSearchParams({
+          originalText: originalText,
+          topic: topic,
+          length: length
         });
-        if (!res.ok) throw new Error("網路錯誤: " + res.status);
-        const data = await res.json();
-        if (!data.success) {
-          throw new Error(data.error || "改寫失敗");
+
+        const url = API_URL + "?" + params.toString();
+        logDebug("GET 請求網址: " + url);
+
+        const res = await fetch(url, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' },
+          mode: 'cors',
+          credentials: 'omit'
+        });
+
+        logDebug("響應狀態碼: " + res.status);
+
+        const text = await res.text();
+        logDebug("原始響應文本: " + text);
+
+        try {
+          const data = JSON.parse(text);
+          if (data.error || !data.text) throw new Error(data.error || "改寫結果為空");
+          resultText = data.text.trim();
+          showResult(resultText);
+          showAfterButtons(true);
+        } catch (parseErr) {
+          throw new Error("解析響應失敗: " + parseErr.message + "\n原始響應: " + text);
         }
-        const r = data.result;
-
-        titleEl.textContent = r.title || "(無)";
-        categoryEl.textContent = r.category || "(無)";
-        shortRewriteEl.textContent = r.short_rewrite || "(無)";
-        longRewriteEl.textContent = r.long_rewrite || "(無)";
-
-        resultDiv.style.display = "block";
-        statusDiv.textContent = "改寫完成！";
-      } catch (e) {
-        statusDiv.innerHTML = `<span class="error">錯誤: ${e.message}</span>`;
+      } catch (err) {
+        logDebug("錯誤: " + err.message);
+        showError("❌ 改寫失敗：" + err.message);
+        clearResultAndButtons();
       } finally {
-        rewriteBtn.disabled = false;
+        disableRewriteBtn(false);
       }
-    });
+    }
+    
+    function disableRewriteBtn(flag) {
+      document.getElementById('rewriteBtn').disabled = flag;
+    }
+    
+    function showLoading(msg) {
+      const div = document.getElementById('rewriteResult');
+      div.textContent = msg;
+      div.classList.remove('error');
+    }
+    
+    function showResult(text) {
+      const div = document.getElementById('rewriteResult');
+      div.classList.remove('error');
+      div.innerHTML = text.split('\n').map(p => `<p>${escapeHtml(p)}</p>`).join('');
+    }
+    
+    function showAfterButtons(flag) {
+      document.getElementById('afterButtons').style.display = flag ? 'flex' : 'none';
+    }
+    
+    function showError(msg) {
+      const div = document.getElementById('rewriteResult');
+      div.textContent = msg;
+      div.classList.add('error');
+      showAfterButtons(false);
+      resultText = '';
+    }
+    
+    function clearError() {
+      const div = document.getElementById('rewriteResult');
+      div.classList.remove('error');
+      div.textContent = '';
+    }
+    
+    function clearResultAndButtons() {
+      const div = document.getElementById('rewriteResult');
+      div.textContent = '';
+      showAfterButtons(false);
+      resultText = '';
+    }
+    
+    function copyResult() {
+      if (!resultText) return alert("沒有可複製的內容");
+      navigator.clipboard.writeText(resultText).then(() => {
+        showBigAlert("複製成功");
+      }).catch(() => alert("複製失敗，請手動複製"));
+    }
+    
+    function showBigAlert(message) {
+      const alertDiv = document.getElementById('bigAlert');
+      alertDiv.textContent = message;
+      alertDiv.style.display = 'block';
+      setTimeout(() => {
+        alertDiv.style.display = 'none';
+      }, 1500);
+    }
+    
+    function shareToLine() {
+      if (!resultText) return alert("沒有可分享的內容");
+      if (!isInLine) {
+        alert("請在LINE內開啟本頁以使用分享功能");
+        return;
+      }
+      liff.shareTargetPicker([
+        {
+          type: 'text',
+          text: resultText
+        }
+      ]).then(() => {
+        console.log("分享成功");
+      }).catch(err => {
+        console.error("分享失敗", err);
+      });
+    }
+    
+    async function generateImageAndOpen() {
+      if (!resultText) return alert("沒有可轉圖片的內容");
+      // 這邊簡單示範用第三方 API 或自訂服務將文字轉成圖片
+      // 例如你可以改成自己的圖片產生服務 URL，並傳送文字參數
+      try {
+        const imageUrl = await textToImageApi(resultText);
+        window.open(imageUrl, '_blank');
+      } catch (err) {
+        alert("產生圖片失敗：" + err.message);
+      }
+    }
+    
+    // 範例文字轉圖片API (你可換成自己的實作)
+    async function textToImageApi(text) {
+      // 這是示意，請用真實API或自行實作
+      // 假設有個公開API能GET傳入文字並回傳圖片URL
+      const apiEndpoint = "https://dummyimage.com/600x400/000/fff&text=" + encodeURIComponent(text.slice(0, 50));
+      return apiEndpoint;
+    }
+    
+    // 防止XSS的基本函式
+    function escapeHtml(text) {
+      return text.replace(/[&<>"']/g, function(m) {
+        return {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;'
+        }[m];
+      });
+    }
+    
+    // 頁面載入完成初始化
+    window.onload = initLiff;
   </script>
 </body>
 </html>
