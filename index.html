@@ -14,6 +14,8 @@
       color: #f0f0f0;
       display: flex;
       justify-content: center;
+      min-height: 100vh;
+      align-items: center;
     }
     .card {
       background: #1e1e1e;
@@ -29,6 +31,7 @@
       color: #ffffff;
       font-weight: 700;
       font-size: 20px;
+      text-align: center;
     }
     textarea, select {
       width: 100%;
@@ -41,6 +44,7 @@
       font-size: 15px;
       line-height: 1.6;
       box-sizing: border-box;
+      transition: border-color 0.3s ease;
     }
     textarea:focus, select:focus {
       outline: none;
@@ -89,6 +93,7 @@
       overflow-y: auto;
       position: relative;
       white-space: pre-wrap;
+      min-height: 80px;
     }
     .error {
       background: #3c1e1e;
@@ -114,6 +119,8 @@
       padding: 10px;
       color: #f0f0f0;
       cursor: pointer;
+      border-radius: 8px;
+      transition: background 0.3s ease;
     }
     .action-buttons button:hover {
       background: #444;
@@ -141,6 +148,9 @@
       font-size: 12px;
       color: #aaa;
       font-family: monospace;
+      white-space: pre-wrap;
+      max-height: 60px;
+      overflow-y: auto;
     }
   </style>
 </head>
@@ -162,60 +172,110 @@
       <option value="short" selected>短故事（約95～115字）</option>
       <option value="long">長故事（約165～180字）</option>
     </select>
-    <button id="rewriteBtn" onclick="autoRewrite()">🚀 自動改寫</button>
+    <button id="rewriteBtn" type="button">🚀 自動改寫</button>
     <div id="rewriteResult"></div>
     <div class="action-buttons" style="display:none;" id="afterButtons">
-      <button onclick="copyResult()">📋 複製內容</button>
-      <button onclick="shareToLine()">📤 分享內容</button>
-      <button onclick="generateImageAndOpen()">🖼️ 文案轉圖片</button>
+      <button type="button" id="copyBtn">📋 複製內容</button>
+      <button type="button" id="shareBtn">📤 分享內容</button>
+      <button type="button" id="imageBtn">🖼️ 文案轉圖片</button>
     </div>
     <div id="debugInfo"></div>
   </div>
   <div id="bigAlert"></div>
+
   <script src="https://static.line-scdn.net/liff/edge/2.1/sdk.min.js"></script>
   <script>
     const API_URL = 'https://script.google.com/macros/s/AKfycbwLC4EfEtyQZ1vejtp4u7cQ3vuRkFf7RDWlIa_je_DkAME0E0HjRvVSBfWpee-jiVIu/exec';
     let resultText = '';
     let isInLine = false;
     let debounceTimer = null;
-    let debugInfo = document.getElementById('debugInfo');
+    let lastInputValue = '';
+    const debugInfo = document.getElementById('debugInfo');
 
     async function initLiff() {
       try {
         if (typeof liff === 'undefined') {
-          console.log("切換為Web瀏覽器模式");
+          console.log("非LINE環境，切換Web模式");
           isInLine = false;
           return;
         }
         await liff.init({ liffId: "2007488640-MVdW20Xe" });
         isInLine = liff.isInClient();
-        console.log("LIFF初始化成功");
+        console.log("LIFF初始化成功，isInLine:", isInLine);
       } catch (e) {
-        console.log("切換為Web瀏覽器模式");
+        console.log("LIFF初始化失敗，切換Web模式");
         isInLine = false;
       }
     }
 
-    function logDebug(message) {
-      debugInfo.textContent = message;
-      console.log(message);
+    function logDebug(msg) {
+      debugInfo.textContent = msg;
+      console.log(msg);
     }
 
+    // 按鈕事件與輸入監聽設定
     function setupEventListeners() {
-      const textArea = document.getElementById('originalText');
-      textArea.addEventListener('input', () => {
+      const textarea = document.getElementById('originalText');
+      const topicSelect = document.getElementById('topicSelect');
+      const lengthSelect = document.getElementById('lengthSelect');
+      const rewriteBtn = document.getElementById('rewriteBtn');
+      const copyBtn = document.getElementById('copyBtn');
+      const shareBtn = document.getElementById('shareBtn');
+      const imageBtn = document.getElementById('imageBtn');
+
+      // 按鈕點擊改寫
+      rewriteBtn.addEventListener('click', () => autoRewrite());
+
+      // 輸入或選項改變時自動改寫 (有節流)
+      textarea.addEventListener('input', () => {
         clearError();
         clearResultAndButtons();
-        if (textArea.value.trim()) debounceAutoRewrite();
+        if (textarea.value.trim() && textarea.value.trim() !== lastInputValue) {
+          debounceAutoRewrite();
+        }
       });
-      document.getElementById('topicSelect').addEventListener('change', () => {
-        if (textArea.value.trim()) debounceAutoRewrite();
+
+      topicSelect.addEventListener('change', () => {
+        if (textarea.value.trim()) debounceAutoRewrite();
       });
-      document.getElementById('lengthSelect').addEventListener('change', () => {
-        if (textArea.value.trim()) debounceAutoRewrite();
+
+      lengthSelect.addEventListener('change', () => {
+        if (textarea.value.trim()) debounceAutoRewrite();
+      });
+
+      // 複製按鈕
+      copyBtn.addEventListener('click', copyResult);
+
+      // 分享按鈕
+      shareBtn.addEventListener('click', () => {
+        if (!resultText) return alert("請先改寫文章後再分享");
+        if (!isInLine) return alert("請在 LINE App 中開啟以分享");
+        liff.shareTargetPicker([{ type: "text", text: resultText }])
+          .catch(() => alert("分享失敗或已取消"));
+      });
+
+      // 轉圖片按鈕
+      imageBtn.addEventListener('click', async () => {
+        if (!resultText) return alert("請先改寫文章後再轉圖片");
+        try {
+          // TODO: 請自行替換成你自己的圖片產生 API 或服務網址
+          const res = await fetch('https://your-image-api.example.com/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            mode: 'cors',
+            body: JSON.stringify({ text: resultText })
+          });
+          const json = await res.json();
+          const imageUrl = json.imageUrl || json.url;
+          if (!imageUrl) throw new Error("圖片連結取得失敗");
+          window.open(imageUrl, '_blank');
+        } catch (err) {
+          alert("轉圖片失敗：" + err.message);
+        }
       });
     }
 
+    // 節流自動改寫
     function debounceAutoRewrite() {
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
@@ -238,8 +298,7 @@
       disableRewriteBtn(true);
 
       try {
-        logDebug("正在發送請求到: " + API_URL);
-        logDebug("請求數據: " + JSON.stringify({ originalText, topic, length }));
+        logDebug(`發送請求到: ${API_URL}\n資料: ${JSON.stringify({ originalText, topic, length })}`);
 
         const res = await fetch(API_URL, {
           method: 'POST',
@@ -248,24 +307,22 @@
             'Accept': 'application/json'
           },
           mode: 'cors',
-          credentials: 'omit',
           body: JSON.stringify({ originalText, topic, length })
         });
 
-        logDebug("響應狀態碼: " + res.status);
+        logDebug("回應狀態碼: " + res.status);
 
         const text = await res.text();
-        logDebug("原始響應文本: " + text);
+        logDebug("原始回應文字: " + text);
 
-        try {
-          const data = JSON.parse(text);
-          if (data.error || !data.text) throw new Error(data.error || "改寫結果為空");
-          resultText = data.text.trim();
-          showResult(resultText);
-          showAfterButtons(true);
-        } catch (parseErr) {
-          throw new Error("解析響應失敗: " + parseErr.message + "\n原始響應: " + text);
-        }
+        const data = JSON.parse(text);
+        if (data.error || !data.text) throw new Error(data.error || "改寫結果為空");
+
+        resultText = data.text.trim();
+        lastInputValue = originalText;
+
+        showResult(resultText);
+        showAfterButtons(true);
       } catch (err) {
         logDebug("錯誤: " + err.message);
         showError("❌ 改寫失敗：" + err.message);
@@ -288,7 +345,8 @@
     function showResult(text) {
       const div = document.getElementById('rewriteResult');
       div.classList.remove('error');
-      div.innerHTML = text.split('\n').map(p => `<p>${escapeHtml(p)}</p>`).join('');
+      // 保持換行，避免XSS風險
+      div.innerHTML = text.split('\n').map(line => `<p>${escapeHtml(line)}</p>`).join('');
     }
 
     function showAfterButtons(flag) {
@@ -321,36 +379,6 @@
       navigator.clipboard.writeText(resultText).then(() => {
         showBigAlert("複製成功");
       }).catch(() => alert("複製失敗"));
-    }
-
-    function shareToLine() {
-      if (!resultText) return alert("請先改寫文章後再分享");
-      if (!isInLine) return alert("請在 LINE App 中開啟以分享");
-      liff.shareTargetPicker([{ type: "text", text: resultText }])
-        .catch(() => alert("分享失敗或已取消"));
-    }
-
-    async function generateImageAndOpen() {
-      if (!resultText) return alert("請先改寫文章後再轉圖片");
-      try {
-        // TODO: 替換成你自己的圖片產生 API 或服務網址
-        const res = await fetch('https://your-image-api.example.com/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          mode: 'cors',
-          credentials: 'omit',
-          body: JSON.stringify({ text: resultText })
-        });
-
-        const json = await res.json();
-        const imageUrl = json.imageUrl || json.url;
-        if (!imageUrl) throw new Error("圖片連結取得失敗");
-
-        // 開新分頁
-        window.open(imageUrl, '_blank');
-      } catch (err) {
-        alert("轉圖片失敗：" + err.message);
-      }
     }
 
     function showBigAlert(msg) {
