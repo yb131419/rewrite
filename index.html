@@ -144,6 +144,7 @@
 
   <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwRYOIicltP81EO6fQB81bCRfoEczp29qqqSbz5HjdzbsZmRrccQgxR6QmikAWuuNGl/exec";
+    const LIFF_ID = "2007475335-63jZvMxQ";  // 你的 LIFF ID
 
     let lastRewrite = {
       title: "",
@@ -153,12 +154,18 @@
     let liffUserId = "";
 
     async function initLIFF() {
-      await liff.init({ liffId: "YOUR_LIFF_ID" });
-      if (!liff.isLoggedIn()) {
-        liff.login();
-      } else {
-        const profile = await liff.getProfile();
-        liffUserId = profile.userId;
+      try {
+        await liff.init({ liffId: LIFF_ID });
+        if (!liff.isLoggedIn()) {
+          liff.login();
+        } else {
+          const profile = await liff.getProfile();
+          liffUserId = profile.userId;
+          console.log("✅ LIFF 使用者 ID：", liffUserId);
+        }
+      } catch (error) {
+        console.error("❌ LIFF 初始化錯誤：", error);
+        alert("LIFF 初始化失敗，請確認網路狀態與 LIFF 設定。");
       }
     }
 
