@@ -7,7 +7,6 @@
   <script src="https://static.line-scdn.net/liff/edge/2.1/sdk.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
-
     body {
       font-family: 'Roboto', sans-serif;
       background: #121212;
@@ -17,7 +16,6 @@
       display: flex;
       justify-content: center;
     }
-
     .card {
       background: #1e1e1e;
       border-radius: 16px;
@@ -27,14 +25,12 @@
       padding: 20px;
       box-sizing: border-box;
     }
-
     h2 {
       margin-bottom: 16px;
       color: #ffffff;
       font-weight: 700;
       font-size: 20px;
     }
-
     textarea, select {
       width: 100%;
       margin-top: 12px;
@@ -48,17 +44,14 @@
       line-height: 1.6;
       box-sizing: border-box;
     }
-
     textarea:focus, select:focus {
       outline: none;
       border-color: #4dabf7;
     }
-
     textarea {
       height: 120px;
       resize: vertical;
     }
-
     label {
       margin-top: 20px;
       display: block;
@@ -66,7 +59,6 @@
       font-size: 14px;
       color: #cccccc;
     }
-
     button {
       margin-top: 20px;
       background: linear-gradient(135deg, #4dabf7, #2d9cdb);
@@ -80,16 +72,13 @@
       cursor: pointer;
       transition: all 0.3s ease;
     }
-
     button:disabled {
       opacity: 0.6;
       cursor: not-allowed;
     }
-
     button:hover:not(:disabled) {
       background: linear-gradient(135deg, #339af0, #228be6);
     }
-
     #rewriteResult {
       margin-top: 24px;
       background: #232323;
@@ -101,7 +90,6 @@
       max-height: 400px;
       overflow-y: auto;
     }
-
     #rewriteResult b {
       display: block;
       margin-top: 12px;
@@ -109,12 +97,10 @@
       font-weight: 600;
       font-size: 15px;
     }
-
     .rewrite-text p {
       margin: 10px 0;
       line-height: 1.8;
     }
-
     .error {
       background: #3c1e1e;
       border: 1px solid #d93025;
@@ -132,7 +118,7 @@
     <h2>📘 彥彬文案改寫、貼上文章自動改寫</h2>
     <textarea id="originalText" placeholder="請貼上原始文章..." aria-label="原始文章內容"></textarea>
 
-    <label for="topicSelect">選擇分類主題（可AI自動判斷）：</label>
+    <label for="topicSelect">選擇分類主題（可空白自動判斷）：</label>
     <select id="topicSelect" name="topicSelect" aria-label="分類主題選擇">
       <option value="">AI 自動判斷</option>
       <option>人生成長</option>
@@ -153,7 +139,7 @@
 
     document.addEventListener("DOMContentLoaded", () => {
       if (liff && typeof liff.init === 'function') {
-        liff.init({ liffId: '2007488640-MVdW20Xe' })
+        liff.init({ liffId: '2007488640-MVdW20Xe' }) // <== 替換成你的 LIFF ID
           .then(() => {
             isInLine = liff.isInClient();
           })
