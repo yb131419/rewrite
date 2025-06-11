@@ -126,6 +126,33 @@
       font-size: 14px;
     }
 
+    /* 新增讀取工作表結果樣式 */
+    #sheetDataResult {
+      margin-top: 20px;
+      max-height: 200px;
+      overflow-y: auto;
+      background: #2a2a2a;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #ccc;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 4px;
+      border-bottom: 1px solid #444;
+      text-align: left;
+    }
+
+    th {
+      border-bottom: 2px solid #4dabf7;
+    }
+
     @media (min-width: 600px) {
       .card {
         padding: 24px;
@@ -164,6 +191,10 @@
     <div id="rewriteResult" aria-live="polite" aria-atomic="true"></div>
 
     <button id="lineShareBtn" style="display: none;" onclick="shareToLine()">📤 分享文案</button>
+
+    <!-- 新增讀取工作表按鈕 -->
+    <button id="loadSheetBtn" onclick="loadSheetData()">📄 讀取工作表資料</button>
+    <div id="sheetDataResult" aria-live="polite"></div>
   </div>
 
   <script>
@@ -270,6 +301,40 @@
       } else {
         alert("❌ 無法分享，請用 LINE App 或手機瀏覽器開啟");
       }
+    }
+
+    // 新增讀取工作表資料函式
+    function loadSheetData() {
+      const resultDiv = document.getElementById('sheetDataResult');
+      resultDiv.textContent = '⏳ 資料載入中...';
+
+      google.script.run
+        .withSuccessHandler(data => {
+          if (!data || data.length === 0) {
+            resultDiv.textContent = '❌ 工作表沒有資料';
+            return;
+          }
+          // 將二維陣列轉成表格 HTML 顯示
+          let html = '<table>';
+          data.forEach((row, index) => {
+            html += '<tr>';
+            row.forEach(cell => {
+              if(index === 0) {
+                html += `<th>${cell}</th>`;
+              } else {
+                html += `<td>${cell}</td>`;
+              }
+            });
+            html += '</tr>';
+          });
+          html += '</table>';
+          resultDiv.innerHTML = html;
+        })
+        .withFailureHandler(err => {
+          resultDiv.textContent = '❌ 讀取資料失敗，請稍後再試';
+          console.error(err);
+        })
+        .getSheetData();  // 呼叫 Apps Script 後端函式名稱
     }
   </script>
 </body>
