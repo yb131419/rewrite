@@ -132,7 +132,7 @@
     <h2>📘 彥彬文案改寫、貼上文章自動改寫</h2>
     <textarea id="originalText" placeholder="請貼上原始文章..." aria-label="原始文章內容"></textarea>
 
-    <label for="topicSelect">選擇分類主題（可空白自動判斷）：</label>
+    <label for="topicSelect">選擇分類主題（可AI自動判斷）：</label>
     <select id="topicSelect" name="topicSelect" aria-label="分類主題選擇">
       <option value="">AI 自動判斷</option>
       <option>人生成長</option>
@@ -190,35 +190,34 @@
 
       fetch("https://script.google.com/macros/s/AKfycbwRYOIicltP81EO6fQB81bCRfoEczp29qqqSbz5HjdzbsZmRrccQgxR6QmikAWuuNGl/exec", {
         method: "POST",
-        body: JSON.stringify({ text, topic }),
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, topic })
       })
-        .then(res => res.json())
-        .then(res => {
-          btn.disabled = false;
-          btn.textContent = "🚀 自動改寫";
+      .then(res => res.json())
+      .then(res => {
+        btn.disabled = false;
+        btn.textContent = "🚀 自動改寫";
 
-          if (res.error) {
-            resultDiv.innerHTML = `<div class="error">❌ 發生錯誤：${res.error}</div>`;
-            return;
-          }
+        if (res.error) {
+          resultDiv.innerHTML = `<div class="error">❌ 發生錯誤：${res.error}</div>`;
+          return;
+        }
 
-          const formattedContent = formatContentWithParagraphs(res.content);
-          resultDiv.innerHTML = `
-            <b>🔖 類別：</b>${res.topic}
-            <b class="recommend-title-text">📌 推薦標題：</b>${res.title}
-            <b>📝 改寫內容：</b>
-            <div class="rewrite-text">${formattedContent}</div>
-          `;
-
-          document.getElementById("lineShareBtn").style.display = "block";
-        })
-        .catch(err => {
-          btn.disabled = false;
-          btn.textContent = "🚀 自動改寫";
-          resultDiv.innerHTML = `<div class="error">❌ 呼叫失敗，請稍後再試</div>`;
-          console.error(err);
-        });
+        const formattedContent = formatContentWithParagraphs(res.content);
+        resultDiv.innerHTML = `
+          <b>🔖 類別：</b>${res.topic}
+          <b class="recommend-title-text">📌 推薦標題：</b>${res.title}
+          <b>📝 改寫內容：</b>
+          <div class="rewrite-text">${formattedContent}</div>
+        `;
+        document.getElementById("lineShareBtn").style.display = "block";
+      })
+      .catch(err => {
+        btn.disabled = false;
+        btn.textContent = "🚀 自動改寫";
+        resultDiv.innerHTML = `<div class="error">❌ 呼叫失敗，請稍後再試</div>`;
+        console.error(err);
+      });
     }
 
     function shareToLine() {
