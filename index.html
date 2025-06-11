@@ -133,6 +133,14 @@
     th {
       border-bottom: 2px solid #4dabf7;
     }
+    #recommendTitle {
+      cursor: pointer;
+      user-select: text;
+    }
+    #recommendTitle:focus {
+      outline: 2px solid #4dabf7;
+      outline-offset: 2px;
+    }
     @media (min-width: 600px) {
       .card { padding: 24px; }
       h2 { font-size: 22px; }
@@ -169,14 +177,18 @@
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwRYOIicltP81EO6fQB81bCRfoEczp29qqqSbz5HjdzbsZmRrccQgxR6QmikAWuuNGl/exec";
     let isInLine = false;
 
-    document.addEventListener("DOMContentLoaded", () => {
-      liff.init()
-        .then(() => { isInLine = liff.isInClient(); })
-        .catch(err => console.warn("非 LINE App 環境，改用原生分享", err));
+    document.addEventListener("DOMContentLoaded", async () => {
+      try {
+        await liff.init();
+        isInLine = liff.isInClient();
+      } catch (err) {
+        console.warn("非 LINE App 環境，改用原生分享", err);
+      }
     });
 
     function formatContentWithParagraphs(content) {
-      const paragraphs = content.split(/(?<=\u3002|\n|\r)/).map(p => p.trim()).filter(Boolean);
+      // 依照句號「。」自動換行，保留句號
+      const paragraphs = content.split(/(?<=。)/).map(p => p.trim()).filter(Boolean);
       return paragraphs.map(p => `<p>${p}</p>`).join('');
     }
 
@@ -212,7 +224,7 @@
           const formattedContent = formatContentWithParagraphs(res.content);
           resultDiv.innerHTML = `
             <b>🔖 類別：</b>${res.topic}
-            <b class="recommend-title-text">📌 推薦標題：</b><span id="recommendTitle">${res.title}</span>
+            <b class="recommend-title-text">📌 推薦標題：</b><span id="recommendTitle" tabindex="0" style="cursor:pointer;">${res.title}</span>
             <b>📝 改寫內容：</b>
             <div class="rewrite-text">${formattedContent}</div>
           `;
@@ -274,7 +286,6 @@
           return;
         }
 
-        // 動態取得所有欄位標題
         const columns = Object.keys(data[0]);
         let html = `<table aria-label="工作表資料"><thead><tr>`;
         columns.forEach(col => html += `<th>${col}</th>`);
@@ -296,6 +307,15 @@
         console.error(error);
       }
     }
+
+    // 點擊推薦標題可複製
+    document.addEventListener('click', e => {
+      if (e.target.id === 'recommendTitle') {
+        navigator.clipboard.writeText(e.target.textContent.trim())
+          .then(() => alert('已複製推薦標題'))
+          .catch(() => alert('複製失敗'));
+      }
+    });
   </script>
 </body>
 </html>
