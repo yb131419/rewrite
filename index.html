@@ -67,7 +67,6 @@
     }
     button {
       margin-top: 20px;
-      background: linear-gradient(135deg, #4dabf7, #2d9cdb);
       border: none;
       color: white;
       font-weight: bold;
@@ -82,8 +81,15 @@
       opacity: 0.6;
       cursor: not-allowed;
     }
-    button:hover:not(:disabled) {
+    #rewriteBtn {
+      background: linear-gradient(135deg, #4dabf7, #2d9cdb);
+    }
+    #rewriteBtn:hover:not(:disabled) {
       background: linear-gradient(135deg, #339af0, #228be6);
+    }
+    #shareBtn {
+      background: linear-gradient(135deg, #2d3a9c, #1e2a7c);
+      display: none; /* 初始隱藏，改寫完成後才顯示 */
     }
     #rewriteResult {
       margin-top: 24px;
@@ -108,11 +114,8 @@
       margin-top: 16px;
       font-size: 14px;
     }
-    #shareBtn {
-      background: linear-gradient(135deg, #f783ac, #db2d8b);
-    }
     #bottomSpacer {
-      height: 100px; /* 最下面空出較大空間 */
+      height: 100px;
       flex-shrink: 0;
     }
   </style>
@@ -131,8 +134,8 @@
       <option>財富商機</option>
     </select>
 
-    <button id="rewriteBtn" onclick="autoRewrite()">🚀 自動改寫 </button>
-    <button id="shareBtn" onclick="nativeShare()" disabled>📤 分享文案 </button>
+    <button id="rewriteBtn" onclick="autoRewrite()">🚀 自動改寫</button>
+    <button id="shareBtn" onclick="nativeShare()">📤 分享文案</button>
 
     <div id="rewriteResult" aria-live="polite" aria-atomic="true"></div>
 
@@ -142,42 +145,49 @@
   <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwRYOIicltP81EO6fQB81bCRfoEczp29qqqSbz5HjdzbsZmRrccQgxR6QmikAWuuNGl/exec";
 
-    // 全局變數存放改寫結果，方便分享
     let lastRewrite = {
       title: "",
       content: ""
     };
-    
+
     function handleResponse(res) {
       const resultDiv = document.getElementById("rewriteResult");
       const btn = document.getElementById("rewriteBtn");
       const shareBtn = document.getElementById("shareBtn");
+
       btn.disabled = false;
       btn.textContent = "🚀 自動改寫";
 
       if (res.error) {
         resultDiv.innerHTML = `<div class="error">❌ 發生錯誤：${res.error}</div>`;
-        shareBtn.disabled = true;
-        lastRewrite.title = "";
-        lastRewrite.content = "";
+        shareBtn.style.display = "none";
+        lastRewrite = { title: "", content: "" };
         return;
       }
 
       let output = "";
+      let content = res.content || res.rewritten || "";
+      content = content.replace(/。/g, "。\n"); // 句號自動換行
+
       if (res.topic) output += `🔖 類別：\n${res.topic}\n\n`;
       if (res.title) output += `📌 推薦標題：\n${res.title}\n\n`;
-      if (res.content) output += `📝 改寫內容：\n${res.content}`;
-      else if (res.rewritten) output += `📝 改寫內容：\n${res.rewritten}`;
+      if (content) output += `📝 改寫內容：\n${content}`;
       else output += JSON.stringify(res, null, 2);
 
       resultDiv.textContent = output;
 
-      // 設定分享用內容
-      lastRewrite.title = res.title || "";
-      lastRewrite.content = res.content || res.rewritten || "";
+      lastRewrite = {
+        title: res.title || "",
+        content
+      };
 
-      // 啟用分享按鈕（且判斷 Web Share API 支援）
-      document.getElementById("shareBtn").disabled = !(lastRewrite.content && navigator.share);
+      // 僅當支援分享與有內容時顯示分享按鈕
+      if (navigator.share && content.trim()) {
+        shareBtn.style.display = "block";
+        shareBtn.disabled = false;
+      } else {
+        shareBtn.style.display = "none";
+      }
     }
 
     function autoRewrite() {
@@ -194,7 +204,7 @@
 
       btn.disabled = true;
       btn.textContent = "✍️ 改寫中...";
-      shareBtn.disabled = true;
+      shareBtn.style.display = "none";
       resultDiv.textContent = "⏳ 改寫中，請稍候...";
 
       const oldScript = document.getElementById("jsonpScript");
@@ -214,6 +224,7 @@
         btn.disabled = false;
         btn.textContent = "🚀 自動改寫";
         resultDiv.innerHTML = `<div class="error">❌ 呼叫失敗，請稍後再試</div>`;
+        shareBtn.style.display = "none";
       };
 
       document.body.appendChild(script);
