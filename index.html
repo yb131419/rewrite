@@ -1,12 +1,10 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-Hant">
 <head>
-  <base target="_top">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>彥彬 ✍️文案改寫</title>
-  <script src="https://static.line-scdn.net/liff/edge/2.1/sdk.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>彥彬 ✍️文案改寫（JSONP 版）</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
     body {
       font-family: 'Roboto', sans-serif;
       background: #121212;
@@ -31,7 +29,7 @@
       font-weight: 700;
       font-size: 20px;
     }
-    textarea, select {
+    textarea {
       width: 100%;
       margin-top: 12px;
       padding: 12px 14px;
@@ -43,12 +41,6 @@
       font-family: 'Roboto', sans-serif;
       line-height: 1.6;
       box-sizing: border-box;
-    }
-    textarea:focus, select:focus {
-      outline: none;
-      border-color: #4dabf7;
-    }
-    textarea {
       height: 120px;
       resize: vertical;
     }
@@ -58,6 +50,18 @@
       font-weight: 600;
       font-size: 14px;
       color: #cccccc;
+    }
+    select {
+      width: 100%;
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: #2a2a2a;
+      border: 1px solid #3f3f3f;
+      color: #f0f0f0;
+      font-size: 15px;
+      font-family: 'Roboto', sans-serif;
+      box-sizing: border-box;
     }
     button {
       margin-top: 20px;
@@ -89,17 +93,7 @@
       font-size: 14.5px;
       max-height: 400px;
       overflow-y: auto;
-    }
-    #rewriteResult b {
-      display: block;
-      margin-top: 12px;
-      color: #74c0fc;
-      font-weight: 600;
-      font-size: 15px;
-    }
-    .rewrite-text p {
-      margin: 10px 0;
-      line-height: 1.8;
+      white-space: pre-wrap;
     }
     .error {
       background: #3c1e1e;
@@ -111,47 +105,11 @@
       margin-top: 16px;
       font-size: 14px;
     }
-    #sheetDataResult {
-      margin-top: 20px;
-      max-height: 200px;
-      overflow-y: auto;
-      background: #2a2a2a;
-      padding: 10px;
-      border-radius: 8px;
-      font-size: 13px;
-      color: #ccc;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    th, td {
-      padding: 4px;
-      border-bottom: 1px solid #444;
-      text-align: left;
-    }
-    th {
-      border-bottom: 2px solid #4dabf7;
-    }
-    #recommendTitle {
-      cursor: pointer;
-      user-select: text;
-    }
-    #recommendTitle:focus {
-      outline: 2px solid #4dabf7;
-      outline-offset: 2px;
-    }
-    @media (min-width: 600px) {
-      .card { padding: 24px; }
-      h2 { font-size: 22px; }
-      button { font-size: 17px; }
-      #rewriteResult { font-size: 15.5px; }
-    }
   </style>
 </head>
 <body>
   <div class="card" role="main">
-    <h2>📘 彥彬文案改寫<br>✍️ 貼上文章自動改寫</h2>
+    <h2>📘 彥彬文案改寫<br>✍️ 貼上文章自動改寫（JSONP）</h2>
     <textarea id="originalText" placeholder="請貼上原始文章..." aria-label="原始文章內容"></textarea>
 
     <label for="topicSelect">選擇分類主題（可 AI 自動判斷）：</label>
@@ -166,156 +124,73 @@
     <button id="rewriteBtn" onclick="autoRewrite()">🚀 自動改寫</button>
 
     <div id="rewriteResult" aria-live="polite" aria-atomic="true"></div>
-
-    <button id="lineShareBtn" style="display: none;" onclick="shareToLine()">📤 分享文案</button>
-
-    <button id="loadSheetBtn" onclick="loadSheetData()">📄 讀取工作表資料</button>
-    <div id="sheetDataResult" aria-live="polite"></div>
   </div>
 
   <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwRYOIicltP81EO6fQB81bCRfoEczp29qqqSbz5HjdzbsZmRrccQgxR6QmikAWuuNGl/exec";
-    let isInLine = false;
+    
+    // 先定義全局 callback，後端 JSONP 回傳時會呼叫這個函式
+    function handleResponse(res) {
+      const resultDiv = document.getElementById("rewriteResult");
+      const btn = document.getElementById("rewriteBtn");
+      btn.disabled = false;
+      btn.textContent = "🚀 自動改寫";
 
-    document.addEventListener("DOMContentLoaded", async () => {
-      try {
-        await liff.init();
-        isInLine = liff.isInClient();
-      } catch (err) {
-        console.warn("非 LINE App 環境，改用原生分享", err);
+      if (res.error) {
+        resultDiv.innerHTML = `<div class="error">❌ 發生錯誤：${res.error}</div>`;
+        return;
       }
-    });
 
-    function formatContentWithParagraphs(content) {
-      // 依照句號「。」自動換行，保留句號
-      const paragraphs = content.split(/(?<=。)/).map(p => p.trim()).filter(Boolean);
-      return paragraphs.map(p => `<p>${p}</p>`).join('');
+      // 格式化輸出示範 (根據你的後端格式調整)
+      let output = "";
+      if (res.topic) output += `🔖 類別：${res.topic}\n`;
+      if (res.title) output += `📌 推薦標題：${res.title}\n\n`;
+      if (res.content) output += `📝 改寫內容：\n${res.content}`;
+      else if (res.rewritten) output += `📝 改寫內容：\n${res.rewritten}`;
+      else output += JSON.stringify(res, null, 2);
+
+      resultDiv.textContent = output;
     }
 
     function autoRewrite() {
-      const text = document.getElementById("originalText").value;
+      const text = document.getElementById("originalText").value.trim();
       const topic = document.getElementById("topicSelect").value;
       const resultDiv = document.getElementById("rewriteResult");
       const btn = document.getElementById("rewriteBtn");
 
-      if (!text.trim()) {
+      if (!text) {
         alert("請先貼上文章內容");
         return;
       }
 
       btn.disabled = true;
-      btn.innerText = "✍️ 改寫中...";
-      resultDiv.innerHTML = "⏳ 改寫中，請稍候...";
-      document.getElementById("lineShareBtn").style.display = "none";
+      btn.textContent = "✍️ 改寫中...";
+      resultDiv.textContent = "⏳ 改寫中，請稍候...";
 
-      fetch(SCRIPT_URL, {
-        method: "POST",
-        body: JSON.stringify({ text, topic }),
-        headers: { "Content-Type": "application/json" }
-      })
-      .then(res => res.json())
-      .then(res => {
-        btn.disabled = false;
-        btn.innerText = "🚀 自動改寫";
+      // 移除先前的 JSONP script 標籤，避免多次請求堆疊
+      const oldScript = document.getElementById("jsonpScript");
+      if (oldScript) oldScript.remove();
 
-        if (res.error) {
-          resultDiv.innerHTML = `<div class="error">❌ 發生錯誤：${res.error}</div>`;
-        } else {
-          const formattedContent = formatContentWithParagraphs(res.content);
-          resultDiv.innerHTML = `
-            <b>🔖 類別：</b>${res.topic}
-            <b class="recommend-title-text">📌 推薦標題：</b><span id="recommendTitle" tabindex="0" style="cursor:pointer;">${res.title}</span>
-            <b>📝 改寫內容：</b>
-            <div class="rewrite-text">${formattedContent}</div>
-          `;
-          document.getElementById("lineShareBtn").style.display = "block";
-        }
-      })
-      .catch(err => {
-        btn.disabled = false;
-        btn.innerText = "🚀 自動改寫";
-        resultDiv.innerHTML = `<div class="error">❌ 呼叫失敗，請稍後再試</div>`;
-        console.error(err);
+      // 建立新的 JSONP script 標籤
+      const script = document.createElement("script");
+      script.id = "jsonpScript";
+
+      // encodeURIComponent 文字與主題
+      const params = new URLSearchParams({
+        text: text,
+        topic: topic,
+        callback: "handleResponse"
       });
+
+      script.src = `${SCRIPT_URL}?${params.toString()}`;
+      script.onerror = () => {
+        btn.disabled = false;
+        btn.textContent = "🚀 自動改寫";
+        resultDiv.innerHTML = `<div class="error">❌ 呼叫失敗，請稍後再試</div>`;
+      };
+
+      document.body.appendChild(script);
     }
-
-    function shareToLine() {
-      const title = document.getElementById("recommendTitle")?.textContent.trim() || "改寫內容";
-      const contentDiv = document.querySelector(".rewrite-text");
-      let content = "";
-
-      if (contentDiv) {
-        content = Array.from(contentDiv.querySelectorAll('p'))
-          .map(p => p.textContent.trim())
-          .filter(Boolean)
-          .join('\n\n');
-      }
-
-      const message = `📌 推薦標題：\n${title}\n\n📝 改寫內容：\n${content}`;
-
-      if (isInLine && liff.shareTargetPicker) {
-        liff.shareTargetPicker([{ type: 'text', text: message }])
-          .then(() => alert("已分享至 LINE"))
-          .catch(() => alert("分享失敗或已取消"));
-      } else if (navigator.share) {
-        navigator.share({ title, text: message })
-          .catch(() => alert("分享失敗或已取消"));
-      } else {
-        alert("請在支持分享的環境使用此功能");
-      }
-    }
-
-    async function loadSheetData() {
-      const resultDiv = document.getElementById("sheetDataResult");
-      resultDiv.textContent = "⏳ 讀取中...";
-      try {
-        const response = await fetch(SCRIPT_URL, {
-          method: "POST",
-          body: JSON.stringify({ action: "getSheetData" }),
-          headers: { "Content-Type": "application/json" }
-        });
-        const data = await response.json();
-
-        if (data.error) {
-          resultDiv.innerHTML = `<div class="error">❌ 讀取失敗：${data.error}</div>`;
-          return;
-        }
-
-        if (!Array.isArray(data) || data.length === 0) {
-          resultDiv.textContent = "無資料";
-          return;
-        }
-
-        const columns = Object.keys(data[0]);
-        let html = `<table aria-label="工作表資料"><thead><tr>`;
-        columns.forEach(col => html += `<th>${col}</th>`);
-        html += `</tr></thead><tbody>`;
-
-        data.forEach(row => {
-          html += "<tr>";
-          columns.forEach(col => {
-            html += `<td>${row[col] ?? ''}</td>`;
-          });
-          html += "</tr>";
-        });
-        html += "</tbody></table>";
-
-        resultDiv.innerHTML = html;
-
-      } catch (error) {
-        resultDiv.innerHTML = `<div class="error">❌ 無法取得資料，請稍後再試</div>`;
-        console.error(error);
-      }
-    }
-
-    // 點擊推薦標題可複製
-    document.addEventListener('click', e => {
-      if (e.target.id === 'recommendTitle') {
-        navigator.clipboard.writeText(e.target.textContent.trim())
-          .then(() => alert('已複製推薦標題'))
-          .catch(() => alert('複製失敗'));
-      }
-    });
   </script>
 </body>
 </html>
