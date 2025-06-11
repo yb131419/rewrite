@@ -119,13 +119,14 @@
       flex-shrink: 0;
     }
   </style>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
   <div class="card" role="main">
-    <h2>📘 彥彬文案改寫<br>✍️ 貼上文章自動改寫（JSONP）</h2>
+    <h2>📘 『彥彬』文案改寫<br>✍️ 「貼上」自動改寫 </h2>
     <textarea id="originalText" placeholder="請貼上原始文章..." aria-label="原始文章內容"></textarea>
 
-    <label for="topicSelect">選擇分類主題（可 AI 自動判斷）：</label>
+    <label for="topicSelect">選擇分類主題（可AI自動判斷）：</label>
     <select id="topicSelect" name="topicSelect" aria-label="分類主題選擇">
       <option value="">AI 自動判斷</option>
       <option>人生成長</option>
@@ -138,7 +139,6 @@
     <button id="shareBtn" onclick="nativeShare()">📤 分享文案</button>
 
     <div id="rewriteResult" aria-live="polite" aria-atomic="true"></div>
-
     <div id="bottomSpacer"></div>
   </div>
 
@@ -149,6 +149,20 @@
       title: "",
       content: ""
     };
+
+    let liffUserId = "";
+
+    async function initLIFF() {
+      await liff.init({ liffId: "YOUR_LIFF_ID" });
+      if (!liff.isLoggedIn()) {
+        liff.login();
+      } else {
+        const profile = await liff.getProfile();
+        liffUserId = profile.userId;
+      }
+    }
+
+    initLIFF();
 
     function handleResponse(res) {
       const resultDiv = document.getElementById("rewriteResult");
@@ -168,7 +182,7 @@
 
       let output = "";
       let content = res.content || res.rewritten || "";
-      content = content.replace(/。/g, "。\n\n"); // 句號換兩行
+      content = content.replace(/。/g, "。\n\n");
 
       if (res.topic) output += `🔖 類別：\n${res.topic}\n\n`;
       if (res.title) output += `📌 推薦標題：\n${res.title}\n\n`;
@@ -208,7 +222,6 @@
       btn.textContent = "✍️ 改寫中...";
       shareBtn.style.display = "none";
 
-      // 動態點點 loading
       let dots = 0;
       resultDiv.textContent = "⏳ 改寫中";
       loadingInterval = setInterval(() => {
@@ -223,8 +236,9 @@
       script.id = "jsonpScript";
 
       const params = new URLSearchParams({
-        text: text,
-        topic: topic,
+        text,
+        topic,
+        userId: liffUserId,
         callback: "handleResponse"
       });
 
@@ -253,7 +267,9 @@
 
       const shareData = {
         title: lastRewrite.title || "文案改寫分享",
-        text: `${lastRewrite.title ? lastRewrite.title + "\n\n" : ""}${lastRewrite.content}`
+        text:
+          `${lastRewrite.title ? `📌 推薦標題：\n${lastRewrite.title}\n\n` : ""}` +
+          `📝 改寫內容：\n${lastRewrite.content}`
       };
 
       navigator.share(shareData)
