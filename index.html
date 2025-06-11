@@ -153,6 +153,7 @@
 
     let liffUserId = "";
 
+    // 初始化 LIFF 並取得 userId
     async function initLIFF() {
       try {
         await liff.init({ liffId: LIFF_ID });
@@ -188,7 +189,7 @@
       }
 
       let output = "";
-      let content = res.content || res.rewritten || "";
+      let content = res.content || res.rewrite || "";
       content = content.replace(/。/g, "。\n\n");
 
       if (res.topic) output += `🔖 類別：\n${res.topic}\n\n`;
@@ -203,7 +204,8 @@
         content
       };
 
-      if (navigator.share && content.trim()) {
+      // 若瀏覽器支援分享，且內容非空，顯示分享按鈕
+      if (navigator.share && lastRewrite.content.trim()) {
         shareBtn.style.display = "block";
         shareBtn.disabled = false;
       } else {
@@ -236,12 +238,14 @@
         resultDiv.textContent = "⏳ 改寫中" + ".".repeat(dots);
       }, 500);
 
+      // 移除舊的 jsonp script
       const oldScript = document.getElementById("jsonpScript");
       if (oldScript) oldScript.remove();
 
       const script = document.createElement("script");
       script.id = "jsonpScript";
 
+      // 傳 userId 串接後端權限驗證
       const params = new URLSearchParams({
         text,
         topic,
@@ -250,6 +254,7 @@
       });
 
       script.src = `${SCRIPT_URL}?${params.toString()}`;
+
       script.onerror = () => {
         clearInterval(loadingInterval);
         btn.disabled = false;
@@ -267,7 +272,7 @@
         return;
       }
 
-      if (!lastRewrite.content) {
+      if (!lastRewrite.content.trim()) {
         alert("沒有可分享的改寫內容");
         return;
       }
