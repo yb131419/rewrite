@@ -241,51 +241,60 @@
 
       const message = `📌 推薦標題：\n${title}\n\n📝 改寫內容：\n${content}`;
 
-      if (isInLine && liff.isApiAvailable('shareTargetPicker')) {
-        liff.shareTargetPicker([{ type: "text", text: message }])
-          .then(() => alert("✅ 已分享至 LINE！"))
-          .catch(err => {
-            console.error("❌ LINE 分享失敗", err);
-            alert("❌ 分享失敗，請稍後再試");
-          });
+      if (isInLine && liff.shareTargetPicker) {
+        liff.shareTargetPicker([{ type: 'text', text: message }])
+          .then(() => alert("已分享至 LINE"))
+          .catch(() => alert("分享失敗或已取消"));
       } else if (navigator.share) {
         navigator.share({ title, text: message })
-          .then(() => alert("✅ 已分享！"))
-          .catch(err => {
-            console.error("❌ 原生分享失敗", err);
-            alert("❌ 分享失敗，請稍後再試");
-          });
+          .catch(() => alert("分享失敗或已取消"));
       } else {
-        alert("❌ 無法分享，請用 LINE App 或手機瀏覽器開啟");
+        alert("請在支持分享的環境使用此功能");
       }
     }
 
-    function loadSheetData() {
-      const resultDiv = document.getElementById('sheetDataResult');
-      resultDiv.textContent = '⏳ 資料載入中...';
-
-      fetch(SCRIPT_URL + '?action=getSheetData')
-        .then(res => res.json())
-        .then(data => {
-          if (!data || data.length === 0) {
-            resultDiv.textContent = '❌ 工作表沒有資料';
-            return;
-          }
-          let html = '<table>';
-          data.forEach((row, index) => {
-            html += '<tr>';
-            row.forEach(cell => {
-              html += index === 0 ? `<th>${cell}</th>` : `<td>${cell}</td>`;
-            });
-            html += '</tr>';
-          });
-          html += '</table>';
-          resultDiv.innerHTML = html;
-        })
-        .catch(err => {
-          resultDiv.textContent = '❌ 讀取資料失敗，請稍後再試';
-          console.error(err);
+    async function loadSheetData() {
+      const resultDiv = document.getElementById("sheetDataResult");
+      resultDiv.textContent = "⏳ 讀取中...";
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: "POST",
+          body: JSON.stringify({ action: "getSheetData" }),
+          headers: { "Content-Type": "application/json" }
         });
+        const data = await response.json();
+
+        if (data.error) {
+          resultDiv.innerHTML = `<div class="error">❌ 讀取失敗：${data.error}</div>`;
+          return;
+        }
+
+        if (!Array.isArray(data) || data.length === 0) {
+          resultDiv.textContent = "無資料";
+          return;
+        }
+
+        // 動態取得所有欄位標題
+        const columns = Object.keys(data[0]);
+        let html = `<table aria-label="工作表資料"><thead><tr>`;
+        columns.forEach(col => html += `<th>${col}</th>`);
+        html += `</tr></thead><tbody>`;
+
+        data.forEach(row => {
+          html += "<tr>";
+          columns.forEach(col => {
+            html += `<td>${row[col] ?? ''}</td>`;
+          });
+          html += "</tr>";
+        });
+        html += "</tbody></table>";
+
+        resultDiv.innerHTML = html;
+
+      } catch (error) {
+        resultDiv.innerHTML = `<div class="error">❌ 無法取得資料，請稍後再試</div>`;
+        console.error(error);
+      }
     }
   </script>
 </body>
