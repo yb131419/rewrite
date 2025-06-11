@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>彥彬 ✍️文案改寫（JSONP 版）</title>
+  <title>彥彬 ✍️文案改寫</title>
   <style>
     body {
       font-family: 'Roboto', sans-serif;
@@ -22,6 +22,8 @@
       max-width: 480px;
       padding: 20px;
       box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
     }
     h2 {
       margin-bottom: 16px;
@@ -94,6 +96,7 @@
       max-height: 400px;
       overflow-y: auto;
       white-space: pre-wrap;
+      flex-grow: 1;
     }
     .error {
       background: #3c1e1e;
@@ -104,6 +107,13 @@
       border-radius: 10px;
       margin-top: 16px;
       font-size: 14px;
+    }
+    #shareBtn {
+      background: linear-gradient(135deg, #f783ac, #db2d8b);
+    }
+    #bottomSpacer {
+      height: 100px; /* 最下面空出較大空間 */
+      flex-shrink: 0;
     }
   </style>
 </head>
@@ -122,34 +132,52 @@
     </select>
 
     <button id="rewriteBtn" onclick="autoRewrite()">🚀 自動改寫</button>
+    <button id="shareBtn" onclick="nativeShare()" disabled>📤 原生分享改寫內容</button>
 
     <div id="rewriteResult" aria-live="polite" aria-atomic="true"></div>
+
+    <div id="bottomSpacer"></div>
   </div>
 
   <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwRYOIicltP81EO6fQB81bCRfoEczp29qqqSbz5HjdzbsZmRrccQgxR6QmikAWuuNGl/exec";
+
+    // 全局變數存放改寫結果，方便分享
+    let lastRewrite = {
+      title: "",
+      content: ""
+    };
     
-    // 先定義全局 callback，後端 JSONP 回傳時會呼叫這個函式
     function handleResponse(res) {
       const resultDiv = document.getElementById("rewriteResult");
       const btn = document.getElementById("rewriteBtn");
+      const shareBtn = document.getElementById("shareBtn");
       btn.disabled = false;
       btn.textContent = "🚀 自動改寫";
 
       if (res.error) {
         resultDiv.innerHTML = `<div class="error">❌ 發生錯誤：${res.error}</div>`;
+        shareBtn.disabled = true;
+        lastRewrite.title = "";
+        lastRewrite.content = "";
         return;
       }
 
-      // 格式化輸出示範 (根據你的後端格式調整)
       let output = "";
-      if (res.topic) output += `🔖 類別：${res.topic}\n`;
-      if (res.title) output += `📌 推薦標題：${res.title}\n\n`;
+      if (res.topic) output += `🔖 類別：\n${res.topic}\n\n`;
+      if (res.title) output += `📌 推薦標題：\n${res.title}\n\n`;
       if (res.content) output += `📝 改寫內容：\n${res.content}`;
       else if (res.rewritten) output += `📝 改寫內容：\n${res.rewritten}`;
       else output += JSON.stringify(res, null, 2);
 
       resultDiv.textContent = output;
+
+      // 設定分享用內容
+      lastRewrite.title = res.title || "";
+      lastRewrite.content = res.content || res.rewritten || "";
+
+      // 啟用分享按鈕（且判斷 Web Share API 支援）
+      document.getElementById("shareBtn").disabled = !(lastRewrite.content && navigator.share);
     }
 
     function autoRewrite() {
@@ -157,6 +185,7 @@
       const topic = document.getElementById("topicSelect").value;
       const resultDiv = document.getElementById("rewriteResult");
       const btn = document.getElementById("rewriteBtn");
+      const shareBtn = document.getElementById("shareBtn");
 
       if (!text) {
         alert("請先貼上文章內容");
@@ -165,17 +194,15 @@
 
       btn.disabled = true;
       btn.textContent = "✍️ 改寫中...";
+      shareBtn.disabled = true;
       resultDiv.textContent = "⏳ 改寫中，請稍候...";
 
-      // 移除先前的 JSONP script 標籤，避免多次請求堆疊
       const oldScript = document.getElementById("jsonpScript");
       if (oldScript) oldScript.remove();
 
-      // 建立新的 JSONP script 標籤
       const script = document.createElement("script");
       script.id = "jsonpScript";
 
-      // encodeURIComponent 文字與主題
       const params = new URLSearchParams({
         text: text,
         topic: topic,
@@ -190,6 +217,29 @@
       };
 
       document.body.appendChild(script);
+    }
+
+    function nativeShare() {
+      if (!navigator.share) {
+        alert("您的瀏覽器不支援原生分享功能");
+        return;
+      }
+
+      if (!lastRewrite.content) {
+        alert("沒有可分享的改寫內容");
+        return;
+      }
+
+      const shareData = {
+        title: lastRewrite.title || "文案改寫分享",
+        text: `${lastRewrite.title ? lastRewrite.title + "\n\n" : ""}${lastRewrite.content}`
+      };
+
+      navigator.share(shareData)
+        .catch(err => {
+          console.error("分享失敗:", err);
+          alert("分享失敗，請稍後再試");
+        });
     }
   </script>
 </body>
