@@ -123,15 +123,15 @@
     statusMsg.textContent = "改寫中...";
     rewriteBtn.disabled = true;
 
-    const formData = new URLSearchParams();
-    formData.append("text", text);
-    formData.append("userId", userId);
-
     fetch(scriptURL, {
       method: "POST",
-      body: formData,
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      mode: "cors"
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        text: text,
+        userId: userId
+      })
     })
     .then(res => res.json())
     .then(data => {
@@ -164,7 +164,7 @@
     rewrittenText = "";
   });
 
-  // 分享按鈕（透過 LIFF 分享）
+  // 分享按鈕
   shareBtn.addEventListener("click", () => {
     if (!rewrittenText) return;
     liff.shareTargetPicker([
@@ -177,7 +177,6 @@
       statusMsg.textContent = "❌ 分享失敗或取消";
     });
   });
-
 </script>
 
 </body>
