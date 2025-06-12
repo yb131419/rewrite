@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>彥彬 ✍️文案改寫</title>
-  <style>
+   <style>
     body {
       font-family: 'Roboto', sans-serif;
       background: #121212;
@@ -158,7 +158,8 @@
           liff.login();
         } else {
           const profile = await liff.getProfile();
-          liffUserId = profile.userId;
+          const idToken = liff.getDecodedIDToken();
+          liffUserId = idToken?.sub || profile?.userId || "";
           console.log("✅ LIFF 使用者 ID：", liffUserId);
         }
       } catch (error) {
@@ -218,6 +219,11 @@
 
       if (!text || btn.disabled) return;
 
+      if (!liffUserId) {
+        resultDiv.innerHTML = `<div class="error">⚠️ 請先登入 LINE，才能使用改寫功能。</div>`;
+        return;
+      }
+
       btn.disabled = true;
       btn.textContent = "✍️ 改寫中...";
       shareBtn.style.display = "none";
@@ -270,9 +276,8 @@
       });
     }
 
-    // 貼上即自動觸發改寫
     document.getElementById("originalText").addEventListener("paste", () => {
-      setTimeout(autoRewrite, 200); // 延遲確保內容已貼上
+      setTimeout(autoRewrite, 200);
     });
   </script>
 </body>
