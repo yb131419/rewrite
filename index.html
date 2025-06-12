@@ -80,6 +80,7 @@
     button:disabled {
       opacity: 0.6;
       cursor: not-allowed;
+      pointer-events: none;
     }
     #rewriteBtn {
       background: linear-gradient(135deg, #4dabf7, #2d9cdb);
@@ -144,16 +145,12 @@
 
   <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwRYOIicltP81EO6fQB81bCRfoEczp29qqqSbz5HjdzbsZmRrccQgxR6QmikAWuuNGl/exec";
-    const LIFF_ID = "2007475335-63jZvMxQ";  // 你的 LIFF ID
+    const LIFF_ID = "2007475335-63jZvMxQ";
 
-    let lastRewrite = {
-      title: "",
-      content: ""
-    };
-
+    let lastRewrite = { title: "", content: "" };
     let liffUserId = "";
+    let loadingInterval = null;
 
-    // 初始化 LIFF 並取得 userId
     async function initLIFF() {
       try {
         await liff.init({ liffId: LIFF_ID });
@@ -204,7 +201,6 @@
         content
       };
 
-      // 若瀏覽器支援分享，且內容非空，顯示分享按鈕
       if (navigator.share && lastRewrite.content.trim()) {
         shareBtn.style.display = "block";
         shareBtn.disabled = false;
@@ -213,8 +209,6 @@
       }
     }
 
-    let loadingInterval;
-
     function autoRewrite() {
       const text = document.getElementById("originalText").value.trim();
       const topic = document.getElementById("topicSelect").value;
@@ -222,10 +216,7 @@
       const btn = document.getElementById("rewriteBtn");
       const shareBtn = document.getElementById("shareBtn");
 
-      if (!text) {
-        alert("請先貼上文章內容");
-        return;
-      }
+      if (!text || btn.disabled) return;
 
       btn.disabled = true;
       btn.textContent = "✍️ 改寫中...";
@@ -238,14 +229,12 @@
         resultDiv.textContent = "⏳ 改寫中" + ".".repeat(dots);
       }, 500);
 
-      // 移除舊的 jsonp script
       const oldScript = document.getElementById("jsonpScript");
       if (oldScript) oldScript.remove();
 
       const script = document.createElement("script");
       script.id = "jsonpScript";
 
-      // 傳 userId 串接後端權限驗證
       const params = new URLSearchParams({
         text,
         topic,
@@ -267,29 +256,24 @@
     }
 
     function nativeShare() {
-      if (!navigator.share) {
-        alert("您的瀏覽器不支援原生分享功能");
+      if (!navigator.share || !lastRewrite.content.trim()) {
+        alert("無法分享，請確認內容或瀏覽器支援");
         return;
       }
 
-      if (!lastRewrite.content.trim()) {
-        alert("沒有可分享的改寫內容");
-        return;
-      }
-
-      const shareData = {
+      navigator.share({
         title: lastRewrite.title || "文案改寫分享",
-        text:
-          `${lastRewrite.title ? `📌 推薦標題：\n${lastRewrite.title}\n\n` : ""}` +
-          `📝 改寫內容：\n${lastRewrite.content}`
-      };
-
-      navigator.share(shareData)
-        .catch(err => {
-          console.error("分享失敗:", err);
-          alert("分享失敗，請稍後再試");
-        });
+        text: `${lastRewrite.title ? `📌 推薦標題：\n${lastRewrite.title}\n\n` : ""}📝 改寫內容：\n${lastRewrite.content}`
+      }).catch(err => {
+        console.error("分享失敗:", err);
+        alert("分享失敗，請稍後再試");
+      });
     }
+
+    // 貼上即自動觸發改寫
+    document.getElementById("originalText").addEventListener("paste", () => {
+      setTimeout(autoRewrite, 200); // 延遲確保內容已貼上
+    });
   </script>
 </body>
 </html>
