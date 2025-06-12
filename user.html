@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <title>快速新增使用者範例</title>
+</head>
+<body>
+  <h2>快速新增使用者</h2>
+  <label for="userId">使用者 ID:</label>
+  <input type="text" id="userId" placeholder="輸入使用者ID" />
+  <button id="addUserBtn">新增使用者</button>
+  <p id="result"></p>
+
+  <script>
+    const addUserBtn = document.getElementById('addUserBtn');
+    const resultP = document.getElementById('result');
+
+    addUserBtn.addEventListener('click', () => {
+      const userId = document.getElementById('userId').value.trim();
+      if (!userId) {
+        resultP.textContent = "請輸入使用者 ID";
+        return;
+      }
+
+      // 請換成你的 GAS 部署後端 Web App URL
+      const GAS_URL = "https://script.google.com/macros/s/AKfycbwRYOIicltP81EO6fQB81bCRfoEczp29qqqSbz5HjdzbsZmRrccQgxR6QmikAWuuNGl/exec";
+
+      fetch(GAS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "addUser",
+          userId: userId
+        })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.error) {
+          resultP.textContent = "錯誤: " + data.error;
+        } else {
+          resultP.textContent = data.message || "操作完成";
+        }
+      })
+      .catch(err => {
+        resultP.textContent = "發生錯誤: " + err.message;
+      });
+    });
+  </script>
+</body>
+</html>
